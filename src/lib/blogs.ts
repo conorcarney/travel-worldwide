@@ -93,6 +93,41 @@ export async function createBlog(input: BlogWriteInput): Promise<BlogRecord> {
   };
 }
 
+export async function updateBlog(
+  id: string,
+  input: BlogWriteInput,
+): Promise<BlogRecord> {
+  const db = await requireBlogsDb();
+  if (!ObjectId.isValid(id)) {
+    throw new BlogStoreError("Invalid blog id", 400);
+  }
+
+  const collection = blogsCollection(db);
+  const objectId = new ObjectId(id);
+
+  const slugTaken = await collection.findOne({
+    url: input.url,
+    _id: { $ne: objectId },
+  });
+  if (slugTaken) {
+    throw new BlogStoreError("A blog with that URL slug already exists", 409);
+  }
+
+  const document = toBlogDocument(input);
+  const result = await collection.findOneAndUpdate(
+    { _id: objectId },
+    { $set: document },
+    { returnDocument: "after" },
+  );
+
+  if (!result) {
+    throw new BlogStoreError("Blog not found", 404);
+  }
+
+  const [serialized] = serializeDocs([result]) as BlogRecord[];
+  return serialized!;
+}
+
 export async function deleteBlog(id: string): Promise<void> {
   const db = await requireBlogsDb();
   if (!ObjectId.isValid(id)) {

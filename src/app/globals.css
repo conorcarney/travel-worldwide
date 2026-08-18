@@ -25,3 +25,47 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+button:not(:disabled),
+[type="button"]:not(:disabled),
+[type="submit"]:not(:disabled),
+[type="reset"]:not(:disabled),
+a[href],
+summary,
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+.travel-vehicle-icon {
+  background: none !important;
+  border: none !important;
+  pointer-events: none;
+}
+
+.travel-vehicle-icon-inner {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  transform-origin: 16px 16px;
+  will-change: transform;
+}
+
+.travel-vehicle-icon-inner svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+}

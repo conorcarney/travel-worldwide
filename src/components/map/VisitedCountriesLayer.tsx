@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import type {
   GeoJSON as LeafletGeoJSON,
@@ -21,10 +21,23 @@ type VisitedCountriesLayerProps = {
   blogCountryNames: Set<string>;
 };
 
+const COUNTRIES_PANE = "countriesPane";
+
 function InvalidateSizeOnMount() {
   const map = useMap();
-  useEffect(() => {
+  useLayoutEffect(() => {
     map.invalidateSize();
+  }, [map]);
+  return null;
+}
+
+function CountriesPane() {
+  const map = useMap();
+  useLayoutEffect(() => {
+    const existing = map.getPane(COUNTRIES_PANE);
+    const pane = existing ?? map.createPane(COUNTRIES_PANE);
+    // Below overlayPane (400) so route lines and hover tooltips stay on top.
+    pane.style.zIndex = "350";
   }, [map]);
   return null;
 }
@@ -34,6 +47,10 @@ export function VisitedCountriesLayer({
   visitedNames,
   blogCountryNames,
 }: VisitedCountriesLayerProps) {
+  const map = useMap();
+  if (!map.getPane(COUNTRIES_PANE)) {
+    map.createPane(COUNTRIES_PANE).style.zIndex = "350";
+  }
   const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
   const data = countries as FeatureCollection<Geometry>;
 
@@ -70,11 +87,13 @@ export function VisitedCountriesLayer({
 
   return (
     <>
+      <CountriesPane />
       <InvalidateSizeOnMount />
       <GeoJSON
         ref={geoJsonRef}
         key={`visited-${visitedNames.size}-${blogCountryNames.size}-${countries.features.length}`}
         data={data}
+        pane={COUNTRIES_PANE}
         style={style}
         onEachFeature={onEachFeature}
       />

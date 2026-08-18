@@ -30,7 +30,7 @@ export type CountryFeatureCollection = {
   }>;
 };
 
-/** green = blog, orange = visited without blog, none = not visited */
+/** light green = visited, orange = visited with blog, none = not visited */
 export type CountryFillStatus = "blog" | "visited" | "none";
 
 function normalizeName(value: string): string {
@@ -128,9 +128,10 @@ export function countryDisplayName(
 }
 
 export const COUNTRY_FILL_COLORS = {
-  blog: "#3d9b6a",
-  /** Very light orange — almost transparent on the map */
-  visited: "#f8d4a8",
+  /** Orange — visited and has a blog */
+  blog: "#e67e22",
+  /** Light green — visited, no blog */
+  visited: "#9fd9b5",
   none: "#64748b",
 } as const;
 
@@ -139,7 +140,7 @@ export function countryBaseStyle(status: CountryFillStatus): PathOptions {
     return {
       fillColor: COUNTRY_FILL_COLORS.blog,
       fillOpacity: 0.55,
-      color: "#2f7a54",
+      color: "#c0391a",
       weight: 1,
       fill: true,
     };
@@ -148,10 +149,10 @@ export function countryBaseStyle(status: CountryFillStatus): PathOptions {
   if (status === "visited") {
     return {
       fillColor: COUNTRY_FILL_COLORS.visited,
-      fillOpacity: 0.12,
-      color: "#e8b87a",
-      weight: 0.6,
-      opacity: 0.35,
+      fillOpacity: 0.35,
+      color: "#6fad88",
+      weight: 0.8,
+      opacity: 0.55,
       fill: true,
     };
   }
@@ -169,9 +170,9 @@ export function countryBaseStyle(status: CountryFillStatus): PathOptions {
 export function countryHoverStyle(status: CountryFillStatus): PathOptions {
   if (status === "blog") {
     return {
-      fillColor: "#5ecf8c",
-      fillOpacity: 0.8,
-      color: "#1f5c3d",
+      fillColor: "#f0a35a",
+      fillOpacity: 0.75,
+      color: "#a34512",
       weight: 2,
       fill: true,
     };
@@ -179,11 +180,11 @@ export function countryHoverStyle(status: CountryFillStatus): PathOptions {
 
   if (status === "visited") {
     return {
-      fillColor: "#f5c99a",
-      fillOpacity: 0.28,
-      color: "#e0a86a",
-      weight: 1.25,
-      opacity: 0.55,
+      fillColor: "#b8e8cb",
+      fillOpacity: 0.55,
+      color: "#4f9a6c",
+      weight: 1.5,
+      opacity: 0.7,
       fill: true,
     };
   }

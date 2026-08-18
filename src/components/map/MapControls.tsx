@@ -29,6 +29,7 @@ type MapControlsProps = {
     visited: number;
     routes: number;
     bookmarks: number;
+    asOfLabel?: string;
   };
 };
 
@@ -150,6 +151,7 @@ export function MapControls({
       <p className="text-xs text-muted" data-testid="map-visible-counts">
         Showing {visibleCounts.visited} visited · {visibleCounts.routes} routes ·{" "}
         {visibleCounts.bookmarks} bookmarks
+        {visibleCounts.asOfLabel ? ` · as of ${visibleCounts.asOfLabel}` : ""}
       </p>
     </div>
   );

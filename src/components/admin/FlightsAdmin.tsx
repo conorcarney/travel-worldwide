@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { revealAdminForm } from "@/lib/admin/focus-form";
 import {
   dateSortKey,
   nextSortState,
@@ -51,6 +52,7 @@ export function FlightsAdmin() {
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [sort, setSort] = useState<SortState<FlightSortKey> | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const sortedFlights = sortRows(flights, sort, {
     date: (flight) => dateSortKey(flight.date ?? ""),
@@ -93,6 +95,7 @@ export function FlightsAdmin() {
     setEditingId(flight._id);
     setForm(toFormValues(flight));
     setMessage(null);
+    revealAdminForm(formRef.current);
   }
 
   function resetForm() {
@@ -163,6 +166,7 @@ export function FlightsAdmin() {
       </div>
 
       <form
+        ref={formRef}
         onSubmit={onSubmit}
         className="grid gap-4 border border-border bg-surface/60 p-4 sm:grid-cols-2"
         data-testid="flight-form"

@@ -16,7 +16,7 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.locator(".leaflet-container")).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByTestId("map-status")).toContainText("Ready", {
+  await expect(page.getByTestId("map-playback")).toBeVisible({
     timeout: 60_000,
   });
   await expect(page.getByTestId("map-controls")).toBeVisible();
@@ -30,7 +30,7 @@ test("map layer toggles and year filter update visible counts", async ({
   page,
 }) => {
   await page.goto("/map");
-  await expect(page.getByTestId("map-status")).toContainText("Ready", {
+  await expect(page.getByTestId("map-playback")).toBeVisible({
     timeout: 60_000,
   });
 

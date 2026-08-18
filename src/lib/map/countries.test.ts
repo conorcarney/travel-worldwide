@@ -50,7 +50,7 @@ describe("featureCountryStatus", () => {
   ]);
   const blogs = blogCountryNameSet([{ name: "Ireland" }]);
 
-  it("marks blog countries green even when also visited", () => {
+  it("marks blog countries even when also visited", () => {
     expect(featureCountryStatus({ name: "Ireland" }, visited, blogs)).toBe(
       "blog",
     );
@@ -98,10 +98,9 @@ describe("normalizeCountryList", () => {
 });
 
 describe("country styles", () => {
-  it("uses green for blog and light orange for visited-only", () => {
-    expect(countryBaseStyle("blog").fillColor).toBe("#3d9b6a");
-    expect(countryBaseStyle("visited").fillColor).toBe("#f8d4a8");
-    expect(countryBaseStyle("visited").fillOpacity).toBeLessThan(0.2);
+  it("uses light green for visited-only and orange for blog", () => {
+    expect(countryBaseStyle("visited").fillColor).toBe("#9fd9b5");
+    expect(countryBaseStyle("blog").fillColor).toBe("#e67e22");
   });
 
   it("uses stronger fill on hover than the base style", () => {

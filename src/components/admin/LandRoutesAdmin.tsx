@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { revealAdminForm } from "@/lib/admin/focus-form";
 import {
   dateSortKey,
   nextSortState,
@@ -79,6 +80,7 @@ export function LandRoutesAdmin() {
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [sort, setSort] = useState<SortState<LandRouteSortKey> | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const sortedRoutes = sortRows(routes, sort, {
     type: (route) => route.type,
@@ -122,6 +124,7 @@ export function LandRoutesAdmin() {
     setEditingId(route._id);
     setForm(toFormState(route));
     setMessage(null);
+    revealAdminForm(formRef.current);
   }
 
   function resetForm() {
@@ -197,6 +200,7 @@ export function LandRoutesAdmin() {
       </div>
 
       <form
+        ref={formRef}
         onSubmit={onSubmit}
         className="grid gap-4 border border-border bg-surface/60 p-4 sm:grid-cols-2"
         data-testid="land-route-form"
