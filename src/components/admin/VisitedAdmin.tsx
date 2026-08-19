@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { revealAdminForm } from "@/lib/admin/focus-form";
 import {
   dateSortKey,
   nextSortState,
@@ -20,17 +21,20 @@ type VisitedSortKey = "name" | "date";
 type VisitedFormState = {
   name: string;
   date: string;
+  other_visit_dates: string;
 };
 
 const EMPTY_FORM_STATE: VisitedFormState = {
   name: "",
   date: "",
+  other_visit_dates: "",
 };
 
 function toFormState(visited: VisitedRecord): VisitedFormState {
   return {
     name: visited.name ?? "",
     date: visited.date ?? "",
+    other_visit_dates: visited.other_visit_dates ?? "",
   };
 }
 
@@ -46,6 +50,7 @@ export function VisitedAdmin() {
     key: "name",
     direction: "asc",
   });
+  const formRef = useRef<HTMLFormElement>(null);
 
   const sortedVisited = sortRows(visited, sort, {
     name: (item) => item.name ?? "",
@@ -114,6 +119,7 @@ export function VisitedAdmin() {
     setEditingId(item._id);
     setForm(toFormState(item));
     setMessage(null);
+    revealAdminForm(formRef.current);
   }
 
   function resetForm() {
@@ -128,6 +134,7 @@ export function VisitedAdmin() {
     const parsed = visitedWriteSchema.safeParse({
       name: form.name,
       date: form.date,
+      other_visit_dates: form.other_visit_dates,
     });
     if (!parsed.success) {
       setMessage(parsed.error.issues[0]?.message ?? "Invalid country");
@@ -183,11 +190,13 @@ export function VisitedAdmin() {
         </h1>
         <p className="mt-2 text-sm text-muted">
           Add, rename, or remove countries from your visited list. Names should
-          match the map country names where possible.
+          match the map country names where possible. Use first visited for the
+          earliest trip, and other visit dates for later comma-separated dates.
         </p>
       </div>
 
       <form
+        ref={formRef}
         onSubmit={onSubmit}
         className="grid gap-4 border border-border bg-surface/60 p-4 sm:grid-cols-2"
         data-testid="visited-form"
@@ -214,14 +223,27 @@ export function VisitedAdmin() {
           </datalist>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2">
-          Date visited (optional)
+        <label className="flex flex-col gap-1 text-sm text-muted">
+          First visited (optional)
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
             value={form.date}
             onChange={(event) => updateField("date", event.target.value)}
             placeholder="06/2018 or 19/01/2023"
             data-testid="visited-date"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-muted">
+          Other visit dates (optional)
+          <input
+            className="rounded border border-border bg-background px-3 py-2 text-foreground"
+            value={form.other_visit_dates}
+            onChange={(event) =>
+              updateField("other_visit_dates", event.target.value)
+            }
+            placeholder="08/2020, 03/2022, 19/01/2023"
+            data-testid="visited-other-dates"
           />
         </label>
 
@@ -293,12 +315,13 @@ export function VisitedAdmin() {
                     onSort={(key) => setSort((current) => nextSortState(current, key))}
                   />
                   <SortableHeader
-                    label="Date"
+                    label="First visited"
                     columnKey="date"
                     activeKey={sort.key}
                     direction={sort.direction}
                     onSort={(key) => setSort((current) => nextSortState(current, key))}
                   />
+                  <th className="px-3 py-2 font-medium">Other visit dates</th>
                   <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -311,6 +334,9 @@ export function VisitedAdmin() {
                     <td className="px-3 py-2 align-top">{item.name}</td>
                     <td className="px-3 py-2 align-top text-muted">
                       {item.date || "—"}
+                    </td>
+                    <td className="px-3 py-2 align-top text-muted">
+                      {item.other_visit_dates || "—"}
                     </td>
                     <td className="px-3 py-2 align-top whitespace-nowrap">
                       <button

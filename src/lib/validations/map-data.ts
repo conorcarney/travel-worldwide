@@ -32,6 +32,7 @@ export const mongoVisitedSchema = z.object({
   _id: z.union([z.string(), z.number()]).optional(),
   name: z.string(),
   date: z.string().optional(),
+  other_visit_dates: z.string().optional(),
 });
 
 export const mongoBlogSchema = z.object({

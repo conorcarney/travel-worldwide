@@ -46,11 +46,18 @@ function parseObjectId(id: string): ObjectId {
 }
 
 export function toVisitedDocument(input: VisitedWriteInput) {
-  const document: { name: string; date?: string } = {
+  const document: {
+    name: string;
+    date?: string;
+    other_visit_dates?: string;
+  } = {
     name: input.name,
   };
   if (input.date) {
     document.date = input.date;
+  }
+  if (input.other_visit_dates) {
+    document.other_visit_dates = input.other_visit_dates;
   }
   return document;
 }
@@ -93,12 +100,14 @@ export async function updateVisited(
   }
 
   const document = toVisitedDocument(input);
-  const unsetDate = !input.date;
+  const unset: Record<string, ""> = {};
+  if (!document.date) unset.date = "";
+  if (!document.other_visit_dates) unset.other_visit_dates = "";
 
   const result = await collection.findOneAndUpdate(
     { _id: objectId },
-    unsetDate
-      ? { $set: { name: document.name }, $unset: { date: "" } }
+    Object.keys(unset).length > 0
+      ? { $set: document, $unset: unset }
       : { $set: document },
     { returnDocument: "after" },
   );

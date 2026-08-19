@@ -20,6 +20,30 @@ describe("visitedWriteSchema", () => {
       expect(parsed.data.date).toBeUndefined();
     }
   });
+
+  it("normalizes comma-separated other visit dates", () => {
+    const parsed = visitedWriteSchema.safeParse({
+      name: "Spain",
+      date: "06/2018",
+      other_visit_dates: " 08/2020,  03/2022 , ",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.date).toBe("06/2018");
+      expect(parsed.data.other_visit_dates).toBe("08/2020, 03/2022");
+    }
+  });
+
+  it("treats blank other visit dates as undefined", () => {
+    const parsed = visitedWriteSchema.safeParse({
+      name: "Spain",
+      other_visit_dates: " ,  ",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.other_visit_dates).toBeUndefined();
+    }
+  });
 });
 
 describe("toVisitedDocument", () => {
@@ -33,6 +57,20 @@ describe("toVisitedDocument", () => {
     expect(toVisitedDocument({ name: "Spain", date: "08/2019" })).toEqual({
       name: "Spain",
       date: "08/2019",
+    });
+  });
+
+  it("includes other visit dates when provided", () => {
+    expect(
+      toVisitedDocument({
+        name: "Spain",
+        date: "08/2019",
+        other_visit_dates: "03/2022, 19/01/2023",
+      }),
+    ).toEqual({
+      name: "Spain",
+      date: "08/2019",
+      other_visit_dates: "03/2022, 19/01/2023",
     });
   });
 });

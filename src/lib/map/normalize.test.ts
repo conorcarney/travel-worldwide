@@ -215,12 +215,20 @@ describe("normalizeVisited", () => {
     expect(
       normalizeVisited([
         { _id: "1", name: "Ireland" },
-        { name: "Spain", date: "2019-08-12" },
+        {
+          name: "Spain",
+          date: "2019-08-12",
+          other_visit_dates: "03/2022, 19/01/2023",
+        },
         { iso2: "FR" },
       ]),
     ).toEqual([
       { _id: "1", name: "Ireland" },
-      { name: "Spain", date: "2019-08-12" },
+      {
+        name: "Spain",
+        date: "2019-08-12",
+        other_visit_dates: "03/2022, 19/01/2023",
+      },
     ]);
   });
 });

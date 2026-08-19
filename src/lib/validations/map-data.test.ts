@@ -83,10 +83,17 @@ describe("mongoSurfaceRouteSchema", () => {
 });
 
 describe("mongoVisitedSchema", () => {
-  it("requires a country name and allows optional date", () => {
+  it("requires a country name and allows optional dates", () => {
     expect(mongoVisitedSchema.safeParse({ name: "Ireland" }).success).toBe(
       true,
     );
+    expect(
+      mongoVisitedSchema.safeParse({
+        name: "Spain",
+        date: "06/2018",
+        other_visit_dates: "08/2020, 03/2022",
+      }).success,
+    ).toBe(true);
     expect(mongoVisitedSchema.safeParse({ iso2: "IE" }).success).toBe(false);
   });
 });
