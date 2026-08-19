@@ -1,7 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { TravelMode } from "@/lib/validations/map-data";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
+import {
+  formatYearMonth,
+  yearMonthKey,
+  type YearMonth,
+} from "@/lib/map/timeline";
+import {
+  clampYearMonth,
+  monthFromIndex,
+  monthIndex,
+  parseFilterMonthInput,
+} from "@/lib/map/years";
 
 export type LayerVisibility = {
   visited: boolean;
@@ -16,15 +28,19 @@ const MODE_LABELS: Record<TravelMode, string> = {
   car: "Cars",
 };
 
+const RANGE_INPUT_CLASS =
+  "w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
+
 type MapControlsProps = {
   layers: LayerVisibility;
   onToggleLayer: (key: keyof LayerVisibility) => void;
-  yearStart: number;
-  yearEnd: number;
-  yearMin: number;
-  yearMax: number;
-  onYearStartChange: (year: number) => void;
-  onYearEndChange: (year: number) => void;
+  rangeStart: YearMonth;
+  rangeEnd: YearMonth;
+  rangeMin: YearMonth;
+  rangeMax: YearMonth;
+  onRangeStartChange: (value: YearMonth) => void;
+  onRangeEndChange: (value: YearMonth) => void;
+  onRangeApply: (start: YearMonth, end: YearMonth) => void;
   visibleCounts: {
     visited: number;
     routes: number;
@@ -36,15 +52,50 @@ type MapControlsProps = {
 export function MapControls({
   layers,
   onToggleLayer,
-  yearStart,
-  yearEnd,
-  yearMin,
-  yearMax,
-  onYearStartChange,
-  onYearEndChange,
+  rangeStart,
+  rangeEnd,
+  rangeMin,
+  rangeMax,
+  onRangeStartChange,
+  onRangeEndChange,
+  onRangeApply,
   visibleCounts,
 }: MapControlsProps) {
   const modeKeys = Object.keys(MODE_LABELS) as TravelMode[];
+  const sliderMin = monthIndex(rangeMin);
+  const sliderMax = monthIndex(rangeMax);
+  const [fromDraft, setFromDraft] = useState(formatYearMonth(rangeStart));
+  const [toDraft, setToDraft] = useState(formatYearMonth(rangeEnd));
+  const [filterError, setFilterError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFromDraft(formatYearMonth(rangeStart));
+    setToDraft(formatYearMonth(rangeEnd));
+    setFilterError(null);
+  }, [rangeStart.year, rangeStart.month, rangeEnd.year, rangeEnd.month]);
+
+  function applyTypedRange() {
+    const parsedStart = fromDraft.trim()
+      ? parseFilterMonthInput(fromDraft, "start")
+      : rangeStart;
+    const parsedEnd = toDraft.trim()
+      ? parseFilterMonthInput(toDraft, "end")
+      : rangeEnd;
+
+    if (!parsedStart || !parsedEnd) {
+      setFilterError("Use a year like 2015, or a month like Jan 2015.");
+      return;
+    }
+
+    const startKey = yearMonthKey(parsedStart);
+    const endKey = yearMonthKey(parsedEnd);
+    const orderedStart = startKey <= endKey ? parsedStart : parsedEnd;
+    const orderedEnd = startKey <= endKey ? parsedEnd : parsedStart;
+    onRangeApply(
+      clampYearMonth(orderedStart, rangeMin, rangeMax),
+      clampYearMonth(orderedEnd, rangeMin, rangeMax),
+    );
+  }
 
   return (
     <div
@@ -114,39 +165,104 @@ export function MapControls({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-muted">
           <span>
-            From year:{" "}
+            From:{" "}
             <span className="text-foreground" data-testid="year-start-value">
-              {yearStart}
+              {formatYearMonth(rangeStart)}
             </span>
           </span>
           <input
             type="range"
-            min={yearMin}
-            max={yearMax}
-            value={yearStart}
-            onChange={(event) => onYearStartChange(Number(event.target.value))}
+            min={sliderMin}
+            max={sliderMax}
+            value={monthIndex(rangeStart)}
+            onChange={(event) =>
+              onRangeStartChange(
+                clampYearMonth(
+                  monthFromIndex(Number(event.target.value)),
+                  rangeMin,
+                  rangeEnd,
+                ),
+              )
+            }
             data-testid="year-start"
             className="w-full"
+            aria-valuetext={formatYearMonth(rangeStart)}
           />
         </label>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-muted">
           <span>
-            To year:{" "}
+            To:{" "}
             <span className="text-foreground" data-testid="year-end-value">
-              {yearEnd}
+              {formatYearMonth(rangeEnd)}
             </span>
           </span>
           <input
             type="range"
-            min={yearMin}
-            max={yearMax}
-            value={yearEnd}
-            onChange={(event) => onYearEndChange(Number(event.target.value))}
+            min={sliderMin}
+            max={sliderMax}
+            value={monthIndex(rangeEnd)}
+            onChange={(event) =>
+              onRangeEndChange(
+                clampYearMonth(
+                  monthFromIndex(Number(event.target.value)),
+                  rangeStart,
+                  rangeMax,
+                ),
+              )
+            }
             data-testid="year-end"
             className="w-full"
+            aria-valuetext={formatYearMonth(rangeEnd)}
           />
         </label>
       </div>
+
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyTypedRange();
+        }}
+      >
+        <label className="flex flex-col gap-1 text-muted">
+          <span>From</span>
+          <input
+            type="text"
+            value={fromDraft}
+            onChange={(event) => setFromDraft(event.target.value)}
+            placeholder="2015 or Jan 2015"
+            className={RANGE_INPUT_CLASS}
+            data-testid="year-start-input"
+            autoComplete="off"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-muted">
+          <span>To</span>
+          <input
+            type="text"
+            value={toDraft}
+            onChange={(event) => setToDraft(event.target.value)}
+            placeholder="2020 or Dec 2020"
+            className={RANGE_INPUT_CLASS}
+            data-testid="year-end-input"
+            autoComplete="off"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-md border border-accent bg-accent px-3 py-1.5 text-sm text-white"
+          data-testid="year-range-apply"
+        >
+          Apply
+        </button>
+        {filterError ? (
+          <p className="text-xs text-red-400" data-testid="year-range-error">
+            {filterError}
+          </p>
+        ) : (
+          <p className="text-xs text-muted">Year or month, then Apply.</p>
+        )}
+      </form>
 
       <p className="text-xs text-muted" data-testid="map-visible-counts">
         Showing {visibleCounts.visited} visited · {visibleCounts.routes} routes ·{" "}

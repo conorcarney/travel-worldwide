@@ -79,17 +79,11 @@ export function normalizeSurfaceRoutes(data: unknown[]): MapRoute[] {
 
   data.forEach((item, index) => {
     const parsed = mongoSurfaceRouteSchema.safeParse(item);
-    if (!parsed.success) {
-      console.log("Skipped land route", item, parsed.error.flatten());
-      return;
-    }
+    if (!parsed.success) return;
 
     const route = parsed.data;
     const mode = MODE_FROM_TYPE[route.type];
-    if (!mode) {
-      console.log("Skipped land route: unknown type", route);
-      return;
-    }
+    if (!mode) return;
 
     const path: [number, number][] = [
       [route.departure_latitude, route.departure_longitude],

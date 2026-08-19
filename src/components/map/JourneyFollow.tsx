@@ -4,6 +4,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 import {
+  FOLLOW_PITCH_DEG,
   bridgeDurationMs,
   easeInOutCubic,
   expSmoothAngle,
@@ -16,6 +17,7 @@ import {
   lerpAngle,
   lerpLatLng,
   rotationTilePadRatio,
+  vehicleFollowTransform,
   type FollowCameraState,
 } from "@/lib/map/journey";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
@@ -34,13 +36,19 @@ function isMapUsable(map: L.Map): boolean {
   }
 }
 
-function applyMapHeading(map: L.Map, bearing: number) {
+function applyMapHeading(map: L.Map, bearing: number, pitch = 0) {
   const pane = map.getPane("mapPane");
   if (!pane) return;
   const pos = L.DomUtil.getPosition(pane);
   const size = map.getSize();
   if (!pos || !size) return;
-  pane.style.transform = headingPaneTransform(pos, size, bearing);
+  const container = map.getContainer();
+  if (pitch > 0) {
+    container.classList.add("travel-follow-3d");
+  } else {
+    container.classList.remove("travel-follow-3d");
+  }
+  pane.style.transform = headingPaneTransform(pos, size, bearing, pitch);
 }
 
 function resetMapHeading(map: L.Map) {
@@ -48,6 +56,7 @@ function resetMapHeading(map: L.Map) {
   if (!pane) return;
   const pos = L.DomUtil.getPosition(pane);
   if (!pos) return;
+  map.getContainer().classList.remove("travel-follow-3d");
   L.DomUtil.setPosition(pane, pos);
 }
 
@@ -129,7 +138,7 @@ export function JourneyFollow({
       path.map(([lat, lng]) => L.latLng(lat, lng)),
     );
     const initialSample = interpolateJourney(path, 0);
-    let zoom = 6;
+    let zoom = 12;
     try {
       if (isMapUsable(map)) {
         zoom =
@@ -137,19 +146,36 @@ export function JourneyFollow({
           followZoom(map.getBoundsZoom(bounds, false, L.point(72, 72)));
       }
     } catch {
-      zoom = userZoomRef?.current ?? 6;
+      zoom = userZoomRef?.current ?? 12;
+    }
+
+    const vehiclePaneName = "vehiclePane";
+    try {
+      if (isMapUsable(map) && !map.getPane(vehiclePaneName)) {
+        const pane = map.createPane(vehiclePaneName);
+        pane.style.zIndex = "680";
+        pane.style.overflow = "visible";
+      }
+    } catch {
+      // Map already unmounted.
     }
 
     const marker = L.marker(start, {
       icon: L.divIcon({
         className: "travel-vehicle-icon",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        html: vehicleIconHtml(route.mode, initialSample.bearing, color),
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+        html: vehicleIconHtml(
+          route.mode,
+          initialSample.bearing,
+          color,
+          FOLLOW_PITCH_DEG,
+        ),
       }),
+      pane: vehiclePaneName,
       interactive: false,
       keyboard: false,
-      zIndexOffset: 2000,
+      zIndexOffset: 4000,
     });
     const trail = L.polyline([start], {
       color,
@@ -180,7 +206,7 @@ export function JourneyFollow({
     let cameraPos = previousCamera?.position ?? initialSample.position;
     let cameraBearing = previousCamera?.bearing ?? 0;
     let programmaticView = false;
-    let userZoomIntent = false;
+    let userZooming = false;
     const isFlight = route.mode === "flight";
     const positionTauMs = isFlight ? 110 : 55;
     const headingTauMs = isFlight ? 260 : 90;
@@ -197,31 +223,51 @@ export function JourneyFollow({
     const currentDuration = () =>
       journeyDurationMs(route.distanceKm, speedRef.current);
 
-    const faceTravel = (bearing: number) => {
+    const faceTravel = (bearing: number, pitch = FOLLOW_PITCH_DEG) => {
       try {
-        applyMapHeading(map, bearing);
+        applyMapHeading(map, bearing, pitch);
       } catch {
         // Map already unmounted.
+      }
+    };
+
+    const faceVehicle = (bearing: number, pitch = FOLLOW_PITCH_DEG) => {
+      const inner = marker
+        .getElement()
+        ?.querySelector<HTMLElement>(".travel-vehicle-icon-inner");
+      if (inner) {
+        inner.style.transform = vehicleFollowTransform(bearing, pitch);
       }
     };
 
     const rememberUserZoom = () => {
-      if (!isMapUsable(map) || programmaticView || !userZoomIntent) return;
-      userZoomIntent = false;
-      const nextZoom = map.getZoom();
-      zoom = nextZoom;
-      if (userZoomRef) {
-        userZoomRef.current = nextZoom;
+      if (!isMapUsable(map)) {
+        userZooming = false;
+        return;
+      }
+      if (!programmaticView) {
+        const nextZoom = map.getZoom();
+        zoom = nextZoom;
+        if (userZoomRef) {
+          userZoomRef.current = nextZoom;
+        }
+      }
+      userZooming = false;
+      if (started && !finished && !pausedRef.current) {
+        window.cancelAnimationFrame(raf);
+        raf = window.requestAnimationFrame(tick);
       }
     };
 
     const onUserZoomIntent = () => {
-      userZoomIntent = true;
+      userZooming = true;
       programmaticView = false;
-      try {
-        map.stop();
-      } catch {
-        // Map already unmounted.
+      if (!started) {
+        try {
+          map.stop();
+        } catch {
+          // Map already unmounted.
+        }
       }
     };
 
@@ -259,21 +305,17 @@ export function JourneyFollow({
 
       try {
         marker.setLatLng(target.position);
-        const inner = marker
-          .getElement()
-          ?.querySelector<HTMLElement>(".travel-vehicle-icon-inner");
-        if (inner) {
-          inner.style.transform = `rotate(${cameraBearing}deg)`;
-        }
+        faceVehicle(cameraBearing);
         trail.setLatLngs(target.traveled);
-        programmaticView = true;
-        map.panTo(cameraPos, { animate: false, noMoveStart: true });
-        programmaticView = false;
-        faceTravel(cameraBearing);
+        if (!userZooming) {
+          programmaticView = true;
+          map.panTo(cameraPos, { animate: false, noMoveStart: true });
+          programmaticView = false;
+          faceTravel(cameraBearing);
+        }
         saveCamera();
       } catch {
         programmaticView = false;
-        return;
       }
 
       if (t < 1) {
@@ -299,12 +341,7 @@ export function JourneyFollow({
       programmaticView = false;
       faceTravel(bearing);
       marker.setLatLng(initialSample.position);
-      const inner = marker
-        .getElement()
-        ?.querySelector<HTMLElement>(".travel-vehicle-icon-inner");
-      if (inner) {
-        inner.style.transform = `rotate(${bearing}deg)`;
-      }
+      faceVehicle(bearing);
       saveCamera();
     };
 
@@ -365,7 +402,13 @@ export function JourneyFollow({
       const now = performance.now();
       if (!bridgeStart) bridgeStart = now;
       const raw = Math.min(1, (now - bridgeStart - bridgePausedMs) / bridgeMs);
-      faceTravel(lerpAngle(fromBearing, initialBearing, easeInOutCubic(raw)));
+      const u = easeInOutCubic(raw);
+      const pitch = previousCamera
+        ? FOLLOW_PITCH_DEG
+        : FOLLOW_PITCH_DEG * u;
+      const heading = lerpAngle(fromBearing, initialBearing, u);
+      faceTravel(heading, pitch);
+      faceVehicle(heading, pitch);
     };
 
     resumeTickRef.current = () => {
@@ -403,7 +446,8 @@ export function JourneyFollow({
           programmaticView = true;
           map.setView(start, zoom, { animate: false });
           programmaticView = false;
-          faceTravel(initialBearing);
+          faceTravel(initialBearing, 0);
+          faceVehicle(initialBearing, 0);
         }
         trail.setLatLngs(path);
         const end = path[path.length - 1]!;
@@ -427,7 +471,8 @@ export function JourneyFollow({
           } else {
             map.flyTo(start, zoom, { duration: flySeconds });
           }
-          faceTravel(fromBearing);
+          faceTravel(fromBearing, 0);
+          faceVehicle(fromBearing, 0);
         } else {
           startTravel();
         }
@@ -535,7 +580,8 @@ export function CoverRotatedViewport() {
       PaddedGridLayer["_getTiledPixelBounds"]
     >();
 
-    const padRatio = () => rotationTilePadRatio(map.getSize());
+    const padRatio = () =>
+      rotationTilePadRatio(map.getSize(), FOLLOW_PITCH_DEG);
 
     const patch = (layer: L.Layer) => {
       if (!(layer instanceof L.GridLayer) || originals.has(layer)) return;

@@ -27,6 +27,23 @@ export function formatYearMonth(value: YearMonth): string {
   return `${MONTH_LABELS[value.month - 1]} ${value.year}`;
 }
 
+export function formatYearMonthRange(start: YearMonth, end: YearMonth): string {
+  if (yearMonthKey(start) === yearMonthKey(end)) {
+    return formatYearMonth(start);
+  }
+  return `${formatYearMonth(start)} – ${formatYearMonth(end)}`;
+}
+
+/** "Aug 2019" / "August 2019". */
+export function parseNamedMonthYear(value: string): YearMonth | null {
+  const match = value.trim().match(/^([A-Za-z]{3,9})\s+(\d{4})$/);
+  if (!match) return null;
+  const token = match[1]!.slice(0, 3).toLowerCase();
+  const month =
+    MONTH_LABELS.findIndex((label) => label.toLowerCase() === token) + 1;
+  return toYearMonth(Number(match[2]), month);
+}
+
 /** Human-readable trip date for titles (e.g. "10 Aug 2019"). */
 export function formatTripDate(date: string): string {
   const trimmed = date.trim();

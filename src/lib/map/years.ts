@@ -1,3 +1,10 @@
+import {
+  parseNamedMonthYear,
+  parseYearMonth,
+  yearMonthKey,
+  type YearMonth,
+} from "@/lib/map/timeline";
+
 /** Extract a calendar year from the mixed date strings in Atlas data. */
 export function parseYear(date: string): number | null {
   const trimmed = date.trim();
@@ -71,4 +78,95 @@ export function filterByYearRange<T extends { date: string }>(
   yearEnd: number,
 ): T[] {
   return items.filter((item) => inYearRange(item.date, yearStart, yearEnd));
+}
+
+export function monthIndex(value: YearMonth): number {
+  return value.year * 12 + (value.month - 1);
+}
+
+export function monthFromIndex(index: number): YearMonth {
+  return {
+    year: Math.floor(index / 12),
+    month: (index % 12) + 1,
+  };
+}
+
+export function clampYearMonth(
+  value: YearMonth,
+  min: YearMonth,
+  max: YearMonth,
+): YearMonth {
+  const key = yearMonthKey(value);
+  if (key < yearMonthKey(min)) return min;
+  if (key > yearMonthKey(max)) return max;
+  return value;
+}
+
+export function inMonthRange(
+  date: string,
+  start: YearMonth,
+  end: YearMonth,
+): boolean {
+  const parsed = parseYearMonth(date);
+  if (parsed === null) {
+    return true;
+  }
+  const key = yearMonthKey(parsed);
+  const lo = Math.min(yearMonthKey(start), yearMonthKey(end));
+  const hi = Math.max(yearMonthKey(start), yearMonthKey(end));
+  return key >= lo && key <= hi;
+}
+
+export function filterByMonthRange<T extends { date: string }>(
+  items: T[],
+  start: YearMonth,
+  end: YearMonth,
+): T[] {
+  return items.filter((item) => inMonthRange(item.date, start, end));
+}
+
+export function getMonthBounds(
+  dates: string[],
+  now: Date = new Date(),
+  fallbackMin = 2000,
+): { min: YearMonth; max: YearMonth } {
+  const filterMax: YearMonth = {
+    year: Math.max(now.getFullYear(), 2027),
+    month: 12,
+  };
+  const months = dates
+    .map(parseYearMonth)
+    .filter((value): value is YearMonth => value !== null);
+
+  if (months.length === 0) {
+    return { min: { year: fallbackMin, month: 1 }, max: filterMax };
+  }
+
+  const keys = months.map(yearMonthKey);
+  const minKey = Math.min(...keys);
+  const maxKey = Math.max(...keys, yearMonthKey(filterMax));
+  return {
+    min: { year: Math.floor(minKey / 100), month: minKey % 100 },
+    max: { year: Math.floor(maxKey / 100), month: maxKey % 100 },
+  };
+}
+
+/**
+ * Parse a typed filter value. A bare year is January for `start` and
+ * December for `end`. Also accepts Jan 2019, 08/2019, and full dates.
+ */
+export function parseFilterMonthInput(
+  value: string,
+  role: "start" | "end",
+): YearMonth | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{4}$/.test(trimmed)) {
+    const year = Number(trimmed);
+    if (year < 1900 || year > 2100) return null;
+    return { year, month: role === "end" ? 12 : 1 };
+  }
+
+  return parseNamedMonthYear(trimmed) ?? parseYearMonth(trimmed);
 }

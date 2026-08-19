@@ -22,8 +22,12 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("map-controls")).toBeVisible();
   await expect(page.getByTestId("layer-visited")).toBeChecked();
   await expect(page.getByTestId("layer-flight")).toBeChecked();
+  await expect(page.getByTestId("layer-bookmarks")).not.toBeChecked();
   await expect(page.getByTestId("year-start")).toBeVisible();
   await expect(page.getByTestId("year-end")).toBeVisible();
+  await expect(page.getByTestId("year-start-input")).toBeVisible();
+  await expect(page.getByTestId("year-end-input")).toBeVisible();
+  await expect(page.getByTestId("year-range-apply")).toBeVisible();
 });
 
 test("map layer toggles and year filter update visible counts", async ({
@@ -38,9 +42,8 @@ test("map layer toggles and year filter update visible counts", async ({
   const initialText = await counts.textContent();
   expect(initialText).toMatch(/Showing \d+ visited/);
 
-  await page.getByTestId("layer-bookmarks").uncheck();
+  await expect(page.getByTestId("layer-bookmarks")).not.toBeChecked();
   await expect(counts).toContainText("0 bookmarks");
-
   await page.getByTestId("layer-bookmarks").check();
 
   const yearEnd = page.getByTestId("year-end");
@@ -54,7 +57,8 @@ test("map layer toggles and year filter update visible counts", async ({
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, yearMin);
 
-  await expect(page.getByTestId("year-end-value")).toHaveText(String(yearMin));
+  const startLabel = await page.getByTestId("year-start-value").textContent();
+  await expect(page.getByTestId("year-end-value")).toHaveText(startLabel ?? "");
 });
 
 test("admin routes redirect to login when logged out", async ({ page }) => {

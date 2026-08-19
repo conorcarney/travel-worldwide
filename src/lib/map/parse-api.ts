@@ -5,8 +5,11 @@ type ApiList = {
   error?: string;
 };
 
-export async function fetchApiList(path: string): Promise<ApiList> {
-  const response = await fetch(path);
+export async function fetchApiList(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiList> {
+  const response = await (init ? fetch(path, init) : fetch(path));
   if (!response.ok) {
     return { ok: false, error: `HTTP ${response.status}` };
   }

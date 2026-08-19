@@ -25,16 +25,24 @@ import {
   visitedNameSet,
   type CountryFeatureCollection,
 } from "@/lib/map/countries";
-import { filterByYearRange, getYearBounds, inYearRange } from "@/lib/map/years";
+import {
+  clampYearMonth,
+  filterByMonthRange,
+  getMonthBounds,
+  inMonthRange,
+} from "@/lib/map/years";
+import { allVisitDates, isVisitedInFilter } from "@/lib/map/visit-dates";
 import { summarizeTravelStats } from "@/lib/map/distance";
 import {
   buildPlaybackSteps,
   collectEventMonths,
   filterByPlaybackMonth,
   formatYearMonth,
+  formatYearMonthRange,
   formatTripDate,
   isOnOrBefore,
   parseYearMonth,
+  yearMonthKey,
   type YearMonth,
 } from "@/lib/map/timeline";
 import { summarizeNewCountriesByYear } from "@/lib/map/visited-stats";
@@ -72,7 +80,7 @@ const DEFAULT_LAYERS: LayerVisibility = {
   bus: true,
   train: true,
   car: true,
-  bookmarks: true,
+  bookmarks: false,
 };
 
 const MONTH_HOLD_MS = 550;
@@ -82,28 +90,31 @@ function filterVisitedForPlayback(
   items: MongoVisited[],
   cursor: YearMonth | null,
   playbackComplete: boolean,
-  yearStart: number,
-  yearEnd: number,
+  rangeStart: YearMonth,
+  rangeEnd: YearMonth,
 ): MongoVisited[] {
-  return items.filter((item) => {
-    const date = item.date?.trim() ?? "";
-    if (!date) return playbackComplete;
-    if (!inYearRange(date, yearStart, yearEnd)) return false;
-    return isOnOrBefore(date, cursor);
-  });
+  return items.filter((item) =>
+    isVisitedInFilter(
+      item,
+      rangeStart,
+      rangeEnd,
+      cursor,
+      playbackComplete,
+    ),
+  );
 }
 
 function filterBlogsForPlayback(
   items: MongoBlog[],
   cursor: YearMonth | null,
   playbackComplete: boolean,
-  yearStart: number,
-  yearEnd: number,
+  rangeStart: YearMonth,
+  rangeEnd: YearMonth,
 ): MongoBlog[] {
   return items.filter((item) => {
     const date = item.date_of_first_visit?.trim() ?? "";
     if (!date) return playbackComplete;
-    if (!inYearRange(date, yearStart, yearEnd)) return false;
+    if (!inMonthRange(date, rangeStart, rangeEnd)) return false;
     return isOnOrBefore(date, cursor);
   });
 }
@@ -112,10 +123,10 @@ function playbackCutoff(
   complete: boolean,
   cursor: YearMonth | null,
   months: YearMonth[],
-  yearEnd: number,
+  rangeEnd: YearMonth,
 ): YearMonth | null {
   if (complete) {
-    return months[months.length - 1] ?? { year: yearEnd, month: 12 };
+    return months[months.length - 1] ?? rangeEnd;
   }
   return cursor;
 }
@@ -126,7 +137,10 @@ function journeyTitle(route: MapRoute): string {
 }
 
 const PLAYBACK_BAR_BUTTON =
-  "inline-flex items-center gap-1.5 rounded-md border border-[#b5c5ca] px-2.5 py-0.5 text-background transition-colors hover:border-accent hover:text-accent";
+  "inline-flex items-center gap-1.5 rounded-md border border-[#b5c5ca] bg-transparent px-2.5 py-0.5 text-background transition-colors hover:border-accent hover:text-accent";
+
+const PLAYBACK_BAR_BUTTON_ON =
+  "inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-0.5 text-white";
 
 function PlayIcon() {
   return (
@@ -166,10 +180,16 @@ export default function TravelMap() {
     features: [],
   });
   const [layers, setLayers] = useState<LayerVisibility>(DEFAULT_LAYERS);
-  const [yearMin, setYearMin] = useState(2000);
-  const [yearMax, setYearMax] = useState(2027);
-  const [yearStart, setYearStart] = useState(2000);
-  const [yearEnd, setYearEnd] = useState(2027);
+  const [rangeMin, setRangeMin] = useState<YearMonth>({ year: 2000, month: 1 });
+  const [rangeMax, setRangeMax] = useState<YearMonth>({ year: 2027, month: 12 });
+  const [rangeStart, setRangeStart] = useState<YearMonth>({
+    year: 2000,
+    month: 1,
+  });
+  const [rangeEnd, setRangeEnd] = useState<YearMonth>({
+    year: 2027,
+    month: 12,
+  });
   const [playbackMonth, setPlaybackMonth] = useState<YearMonth | null>(null);
   const [playbackComplete, setPlaybackComplete] = useState(false);
   const [playbackToken, setPlaybackToken] = useState(0);
@@ -177,6 +197,7 @@ export default function TravelMap() {
   const [activeJourney, setActiveJourney] = useState<MapRoute | null>(null);
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("normal");
+  const [showAll, setShowAll] = useState(false);
   const layersRef = useRef(layers);
   const pausedRef = useRef(false);
   const speedRef = useRef(1);
@@ -188,26 +209,21 @@ export default function TravelMap() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const request = { signal: controller.signal };
 
-    async function load() {
+    async function loadCore() {
       try {
         setError(null);
         setStatus("loading");
-        const [
-          visitedRes,
-          flightsRes,
-          surfaceRes,
-          bookmarksRes,
-          countryListRes,
-          blogsRes,
-        ] = await Promise.all([
-          fetchApiList("/api/visited"),
-          fetchApiList("/api/flights"),
-          fetchApiList("/api/buses-trains-ferries"),
-          fetchApiList("/api/maps-me-bookmarks"),
-          fetchApiList("/api/country-list"),
-          fetchApiList("/api/blogs"),
-        ]);
+        const [visitedRes, flightsRes, surfaceRes, bookmarksRes, blogsRes] =
+          await Promise.all([
+            fetchApiList("/api/visited", request),
+            fetchApiList("/api/flights", request),
+            fetchApiList("/api/buses-trains-ferries", request),
+            fetchApiList("/api/maps-me-bookmarks", request),
+            fetchApiList("/api/blogs", request),
+          ]);
 
         if (cancelled) return;
 
@@ -216,7 +232,6 @@ export default function TravelMap() {
           flightsRes,
           surfaceRes,
           bookmarksRes,
-          countryListRes,
           blogsRes,
         ].find((res) => !res.ok);
         if (failed) {
@@ -227,18 +242,12 @@ export default function TravelMap() {
 
         const flightRoutes = normalizeFlights(flightsRes.data ?? []);
         const surfaceRoutes = normalizeSurfaceRoutes(surfaceRes.data ?? []);
-        console.log("Land transport data", {
-          raw: surfaceRes.data,
-          source: surfaceRes.source,
-          normalized: surfaceRoutes,
-        });
         const allRoutes = [...flightRoutes, ...surfaceRoutes];
         const mapBookmarks = normalizeBookmarks(bookmarksRes.data ?? []);
         const visitedCountries = normalizeVisited(visitedRes.data ?? []);
         const blogPosts = normalizeBlogs(blogsRes.data ?? []);
-        const countryGeo = normalizeCountryList(countryListRes.data ?? []);
 
-        const bounds = getYearBounds([
+        const bounds = getMonthBounds([
           ...allRoutes.map((route) => route.date),
           ...mapBookmarks.map((bookmark) => bookmark.date),
           ...visitedCountries.map((item) => item.date ?? ""),
@@ -249,11 +258,10 @@ export default function TravelMap() {
         setBlogs(blogPosts);
         setRoutes(allRoutes);
         setBookmarks(mapBookmarks);
-        setCountries(countryGeo);
-        setYearMin(bounds.min);
-        setYearMax(bounds.max);
-        setYearStart(bounds.min);
-        setYearEnd(bounds.max);
+        setRangeMin(bounds.min);
+        setRangeMax(bounds.max);
+        setRangeStart(bounds.min);
+        setRangeEnd(bounds.max);
         setSource(flightsRes.source ?? visitedRes.source ?? "unknown");
         setStatus("ready");
         setPlaybackMonth(null);
@@ -261,43 +269,61 @@ export default function TravelMap() {
         setActiveJourney(null);
         setPlaybackPaused(false);
         setPlaybackComplete(false);
+        setShowAll(false);
         setPlaybackToken((token) => token + 1);
       } catch (err) {
         if (cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setStatus("error");
         setError(err instanceof Error ? err.message : "Failed to load map");
       }
     }
 
-    void load();
+    async function loadCountries() {
+      try {
+        const countryListRes = await fetchApiList("/api/country-list", request);
+        if (cancelled || !countryListRes.ok) return;
+        const countryGeo = normalizeCountryList(countryListRes.data ?? []);
+        if (cancelled) return;
+        startTransition(() => {
+          setCountries(countryGeo);
+        });
+      } catch {
+        // Playback still works without country fills.
+      }
+    }
+
+    void loadCore();
+    void loadCountries();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
   const yearFilteredRoutes = useMemo(
-    () => filterByYearRange(routes, yearStart, yearEnd),
-    [routes, yearStart, yearEnd],
+    () => filterByMonthRange(routes, rangeStart, rangeEnd),
+    [routes, rangeStart, rangeEnd],
   );
   const yearFilteredBookmarks = useMemo(
-    () => filterByYearRange(bookmarks, yearStart, yearEnd),
-    [bookmarks, yearStart, yearEnd],
+    () => filterByMonthRange(bookmarks, rangeStart, rangeEnd),
+    [bookmarks, rangeStart, rangeEnd],
   );
 
   const timelineMonths = useMemo(() => {
     const dates = [
       ...yearFilteredRoutes.map((route) => route.date),
       ...yearFilteredBookmarks.map((bookmark) => bookmark.date),
-      ...visited
-        .filter(
-          (item) => item.date && inYearRange(item.date, yearStart, yearEnd),
-        )
-        .map((item) => item.date as string),
+      ...visited.flatMap((item) =>
+        allVisitDates(item).filter((date) =>
+          inMonthRange(date, rangeStart, rangeEnd),
+        ),
+      ),
       ...blogs
         .filter(
           (item) =>
             item.date_of_first_visit &&
-            inYearRange(item.date_of_first_visit, yearStart, yearEnd),
+            inMonthRange(item.date_of_first_visit, rangeStart, rangeEnd),
         )
         .map((item) => item.date_of_first_visit as string),
     ];
@@ -307,8 +333,8 @@ export default function TravelMap() {
     yearFilteredBookmarks,
     visited,
     blogs,
-    yearStart,
-    yearEnd,
+    rangeStart,
+    rangeEnd,
   ]);
 
   const routeById = useMemo(() => {
@@ -404,6 +430,7 @@ export default function TravelMap() {
       if (!cancelled) {
         followCameraRef.current = null;
         setActiveJourney(null);
+        setShowAll(true);
         setPlaybackComplete(true);
         setPlaybackPaused(false);
       }
@@ -433,7 +460,7 @@ export default function TravelMap() {
     playbackFinished,
     playbackCursor,
     timelineMonths,
-    yearEnd,
+    rangeEnd,
   );
 
   const revealedRouteIdSet = useMemo(
@@ -458,15 +485,15 @@ export default function TravelMap() {
     visited,
     cutoff,
     playbackFinished,
-    yearStart,
-    yearEnd,
+    rangeStart,
+    rangeEnd,
   );
   const visibleBlogs = filterBlogsForPlayback(
     blogs,
     cutoff,
     playbackFinished,
-    yearStart,
-    yearEnd,
+    rangeStart,
+    rangeEnd,
   );
 
   const visitedNames = visitedNameSet(visibleVisited);
@@ -481,13 +508,12 @@ export default function TravelMap() {
   );
   const countriesByYear = summarizeNewCountriesByYear(
     visibleVisited,
-    yearStart,
-    yearEnd,
+    rangeStart.year,
+    rangeEnd.year,
   );
+  const rangeLabel = formatYearMonthRange(rangeStart, rangeEnd);
   const asOfLabel = playbackFinished
-    ? yearStart === yearEnd
-      ? String(yearEnd)
-      : `${yearStart}–${yearEnd}`
+    ? rangeLabel
     : playbackCursor
       ? formatYearMonth(playbackCursor)
       : "";
@@ -498,6 +524,7 @@ export default function TravelMap() {
 
   function restartPlayback() {
     followCameraRef.current = null;
+    setShowAll(false);
     setActiveJourney(null);
     setRevealedRouteIds([]);
     setPlaybackMonth(null);
@@ -506,23 +533,36 @@ export default function TravelMap() {
     setPlaybackToken((token) => token + 1);
   }
 
-  function updateYearStart(year: number) {
+  function applyFilterRange(start: YearMonth, end: YearMonth) {
+    const startKey = yearMonthKey(start);
+    const endKey = yearMonthKey(end);
+    const nextStart = startKey <= endKey ? start : end;
+    const nextEnd = startKey <= endKey ? end : start;
     startTransition(() => {
-      setYearStart(Math.min(year, yearEnd));
-      restartPlayback();
+      setRangeStart(clampYearMonth(nextStart, rangeMin, rangeMax));
+      setRangeEnd(clampYearMonth(nextEnd, rangeMin, rangeMax));
+      if (!showAll) restartPlayback();
     });
   }
 
-  function updateYearEnd(year: number) {
+  function updateRangeStart(value: YearMonth) {
     startTransition(() => {
-      setYearEnd(Math.max(year, yearStart));
-      restartPlayback();
+      setRangeStart(clampYearMonth(value, rangeMin, rangeEnd));
+      if (!showAll) restartPlayback();
     });
   }
 
-  function skipPlayback() {
+  function updateRangeEnd(value: YearMonth) {
+    startTransition(() => {
+      setRangeEnd(clampYearMonth(value, rangeStart, rangeMax));
+      if (!showAll) restartPlayback();
+    });
+  }
+
+  function enableShowAll() {
     userFollowZoomRef.current = null;
     followCameraRef.current = null;
+    setShowAll(true);
     setActiveJourney(null);
     setPlaybackPaused(false);
     setRevealedRouteIds(
@@ -532,6 +572,14 @@ export default function TravelMap() {
     );
     setPlaybackMonth(timelineMonths[timelineMonths.length - 1] ?? null);
     setPlaybackComplete(true);
+  }
+
+  function toggleShowAll() {
+    if (showAll) {
+      restartPlayback();
+      return;
+    }
+    enableShowAll();
   }
 
   function togglePlaybackPaused() {
@@ -549,9 +597,11 @@ export default function TravelMap() {
     }
   }
 
-  const playbackLabel = playbackFinished
-    ? "Playback complete"
-    : playbackPaused
+  const playbackLabel = showAll
+    ? `Showing all${asOfLabel ? ` · ${asOfLabel}` : ""}`
+    : playbackFinished
+      ? "Playback complete"
+      : playbackPaused
       ? `Paused${
           playbackCursor ? ` · ${formatYearMonth(playbackCursor)}` : ""
         }${activeJourney ? ` · ${journeyTitle(activeJourney)}` : ""}`
@@ -585,28 +635,32 @@ export default function TravelMap() {
             data-testid="map-playback"
           >
             <span>{playbackLabel}</span>
-            {!playbackFinished ? (
-              <>
-                <button
-                  type="button"
-                  className={PLAYBACK_BAR_BUTTON}
-                  onClick={togglePlaybackPaused}
-                  data-testid="playback-pause"
-                  aria-pressed={playbackPaused}
-                >
-                  {playbackPaused ? <PlayIcon /> : <PauseIcon />}
-                  {playbackPaused ? "Play" : "Pause"}
-                </button>
-                <button
-                  type="button"
-                  className={PLAYBACK_BAR_BUTTON}
-                  onClick={skipPlayback}
-                  data-testid="playback-show-all"
-                >
-                  Show all
-                </button>
-              </>
-            ) : (
+            {!showAll && !playbackFinished ? (
+              <button
+                type="button"
+                className={
+                  playbackPaused ? PLAYBACK_BAR_BUTTON : PLAYBACK_BAR_BUTTON_ON
+                }
+                onClick={togglePlaybackPaused}
+                data-testid="playback-pause"
+                aria-pressed={playbackPaused}
+              >
+                {playbackPaused ? <PlayIcon /> : <PauseIcon />}
+                {playbackPaused ? "Play" : "Pause"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={
+                showAll ? PLAYBACK_BAR_BUTTON_ON : PLAYBACK_BAR_BUTTON
+              }
+              onClick={toggleShowAll}
+              data-testid="playback-show-all"
+              aria-pressed={showAll}
+            >
+              Show all
+            </button>
+            {showAll || playbackFinished ? (
               <button
                 type="button"
                 className={PLAYBACK_BAR_BUTTON}
@@ -616,7 +670,7 @@ export default function TravelMap() {
                 <PlayIcon />
                 Replay
               </button>
-            )}
+            ) : null}
             <span
               className="inline-flex items-center gap-1"
               data-testid="playback-speed"
@@ -625,11 +679,11 @@ export default function TravelMap() {
                 <button
                   key={speed.id}
                   type="button"
-                  className={`${PLAYBACK_BAR_BUTTON} ${
+                  className={
                     playbackSpeed === speed.id
-                      ? "border-accent text-accent"
-                      : ""
-                  }`}
+                      ? PLAYBACK_BAR_BUTTON_ON
+                      : PLAYBACK_BAR_BUTTON
+                  }
                   onClick={() => setPlaybackSpeed(speed.id)}
                   aria-pressed={playbackSpeed === speed.id}
                   data-testid={`playback-speed-${speed.id}`}
@@ -646,12 +700,13 @@ export default function TravelMap() {
         <MapControls
           layers={layers}
           onToggleLayer={toggleLayer}
-          yearStart={yearStart}
-          yearEnd={yearEnd}
-          yearMin={yearMin}
-          yearMax={yearMax}
-          onYearStartChange={updateYearStart}
-          onYearEndChange={updateYearEnd}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          rangeMin={rangeMin}
+          rangeMax={rangeMax}
+          onRangeStartChange={updateRangeStart}
+          onRangeEndChange={updateRangeEnd}
+          onRangeApply={applyFilterRange}
           visibleCounts={{
             visited: layers.visited ? visitedNames.size : 0,
             routes: visibleRoutes.length,
@@ -665,7 +720,7 @@ export default function TravelMap() {
         {status === "loading" ? <MapLoadingSpinner overlay /> : null}
         {activeJourney ? (
           <p
-            className="pointer-events-none absolute bottom-4 left-1/2 z-[1100] max-w-[min(90%,32rem)] -translate-x-1/2 truncate rounded-full border border-border bg-surface/90 px-3 py-1 text-center text-xs text-foreground shadow"
+            className="pointer-events-none absolute bottom-4 left-1/2 z-[1100] max-w-[min(92%,42rem)] -translate-x-1/2 truncate rounded-full border border-border bg-surface/90 px-4 py-2 text-center text-lg text-foreground shadow sm:text-xl"
             data-testid="journey-caption"
             aria-live="polite"
           >
@@ -675,8 +730,8 @@ export default function TravelMap() {
           </p>
         ) : null}
         <MapContainer
-          center={[20, 0]}
-          zoom={2}
+          center={[53.3498, -6.2603]}
+          zoom={8}
           className="h-full min-h-[60vh] w-full"
           scrollWheelZoom
         >
@@ -771,8 +826,7 @@ export default function TravelMap() {
         <TravelStats
           stats={statsSummary}
           countriesByYear={countriesByYear}
-          yearStart={yearStart}
-          yearEnd={yearEnd}
+          rangeLabel={rangeLabel}
           asOfLabel={asOfLabel}
         />
       ) : null}

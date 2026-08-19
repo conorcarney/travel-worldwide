@@ -13,6 +13,8 @@ import {
   followCameraTarget,
   rotationTilePadRatio,
   shortestAngleDelta,
+  vehicleFollowTransform,
+  FOLLOW_PITCH_DEG,
 } from "@/lib/map/journey";
 
 describe("journeyDurationMs", () => {
@@ -47,6 +49,24 @@ describe("headingPaneTransform", () => {
   it("rotates the map so eastbound travel faces up", () => {
     expect(headingPaneTransform(pos, size, 90)).toContain("rotate(-90deg)");
   });
+
+  it("adds a chase-cam pitch and Z rotation while following", () => {
+    const pitched = headingPaneTransform(pos, size, 90, 50);
+    expect(pitched).toContain("rotateX(50deg)");
+    expect(pitched).toContain("rotateZ(-90deg)");
+    expect(pitched).toContain("translateY(");
+  });
+});
+
+describe("vehicleFollowTransform", () => {
+  it("only yaws when the map is flat", () => {
+    expect(vehicleFollowTransform(40, 0)).toBe("rotate(40deg)");
+  });
+
+  it("keeps the icon on the map plane while following", () => {
+    expect(vehicleFollowTransform(40, 50)).toBe("rotate(40deg)");
+    expect(vehicleFollowTransform(40, 50)).not.toContain("rotateX");
+  });
 });
 
 describe("rotationTilePadRatio", () => {
@@ -61,14 +81,20 @@ describe("rotationTilePadRatio", () => {
     const pad = rotationTilePadRatio({ x: 200, y: 100 });
     expect(pad).toBeGreaterThan((2 - 1) / 2);
   });
+
+  it("loads extra tiles when the follow-cam is pitched", () => {
+    const flat = rotationTilePadRatio({ x: 100, y: 100 }, 0);
+    const pitched = rotationTilePadRatio({ x: 100, y: 100 }, FOLLOW_PITCH_DEG);
+    expect(pitched).toBeGreaterThan(flat);
+  });
 });
 
 describe("followZoom", () => {
-  it("zooms one level past a fitted route and clamps", () => {
-    expect(followZoom(5)).toBe(6);
-    expect(followZoom(2)).toBe(3);
-    expect(followZoom(14)).toBe(11);
-    expect(followZoom(Number.NaN)).toBe(6);
+  it("zooms in past a fitted route and clamps", () => {
+    expect(followZoom(5)).toBe(12);
+    expect(followZoom(2)).toBe(9);
+    expect(followZoom(14)).toBe(16);
+    expect(followZoom(Number.NaN)).toBe(12);
   });
 });
 

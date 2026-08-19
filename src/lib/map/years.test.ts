@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampYearMonth,
+  filterByMonthRange,
   filterByYearRange,
+  getMonthBounds,
   getYearBounds,
+  inMonthRange,
   inYearRange,
+  monthFromIndex,
+  monthIndex,
+  parseFilterMonthInput,
   parseYear,
 } from "@/lib/map/years";
 
@@ -79,5 +86,103 @@ describe("filterByYearRange", () => {
     expect(filterByYearRange(items, 2019, 2021).map((item) => item.id)).toEqual(
       ["b"],
     );
+  });
+});
+
+describe("monthIndex", () => {
+  it("round-trips year-month values", () => {
+    expect(monthFromIndex(monthIndex({ year: 2019, month: 8 }))).toEqual({
+      year: 2019,
+      month: 8,
+    });
+  });
+});
+
+describe("inMonthRange / filterByMonthRange", () => {
+  it("includes dates inside the month window", () => {
+    expect(
+      inMonthRange("15/08/2019", { year: 2019, month: 3 }, { year: 2019, month: 8 }),
+    ).toBe(true);
+    expect(
+      inMonthRange("15/08/2019", { year: 2019, month: 9 }, { year: 2020, month: 1 }),
+    ).toBe(false);
+  });
+
+  it("keeps undated items visible", () => {
+    expect(
+      inMonthRange("", { year: 2010, month: 1 }, { year: 2012, month: 12 }),
+    ).toBe(true);
+  });
+
+  it("filters items by month window", () => {
+    const items = [
+      { id: "a", date: "01/01/2019" },
+      { id: "b", date: "15/08/2019" },
+      { id: "c", date: "01/01/2020" },
+    ];
+    expect(
+      filterByMonthRange(
+        items,
+        { year: 2019, month: 8 },
+        { year: 2019, month: 12 },
+      ).map((item) => item.id),
+    ).toEqual(["b"]);
+  });
+});
+
+describe("getMonthBounds", () => {
+  it("uses the earliest data month and extends max through Dec 2027", () => {
+    expect(
+      getMonthBounds(["2/2020", "19/01/2023", "bad"], new Date("2026-08-03")),
+    ).toEqual({
+      min: { year: 2020, month: 2 },
+      max: { year: 2027, month: 12 },
+    });
+  });
+});
+
+describe("parseFilterMonthInput", () => {
+  it("treats a bare year as January for start and December for end", () => {
+    expect(parseFilterMonthInput("2015", "start")).toEqual({
+      year: 2015,
+      month: 1,
+    });
+    expect(parseFilterMonthInput("2015", "end")).toEqual({
+      year: 2015,
+      month: 12,
+    });
+  });
+
+  it("parses month names and slash dates", () => {
+    expect(parseFilterMonthInput("Aug 2019", "start")).toEqual({
+      year: 2019,
+      month: 8,
+    });
+    expect(parseFilterMonthInput("August 2019", "end")).toEqual({
+      year: 2019,
+      month: 8,
+    });
+    expect(parseFilterMonthInput("8/2019", "start")).toEqual({
+      year: 2019,
+      month: 8,
+    });
+  });
+
+  it("returns null for empty or unknown values", () => {
+    expect(parseFilterMonthInput("  ", "start")).toBeNull();
+    expect(parseFilterMonthInput("sometime", "end")).toBeNull();
+  });
+});
+
+describe("clampYearMonth", () => {
+  it("clamps to the inclusive bounds", () => {
+    const min = { year: 2018, month: 3 };
+    const max = { year: 2020, month: 6 };
+    expect(clampYearMonth({ year: 2017, month: 12 }, min, max)).toEqual(min);
+    expect(clampYearMonth({ year: 2021, month: 1 }, min, max)).toEqual(max);
+    expect(clampYearMonth({ year: 2019, month: 8 }, min, max)).toEqual({
+      year: 2019,
+      month: 8,
+    });
   });
 });

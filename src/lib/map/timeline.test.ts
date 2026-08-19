@@ -6,6 +6,7 @@ import {
   dateOrderKey,
   filterByPlaybackMonth,
   formatYearMonth,
+  formatYearMonthRange,
   formatTripDate,
   isInYearMonth,
   isOnOrBefore,
@@ -55,6 +56,12 @@ describe("isOnOrBefore / filterByPlaybackMonth", () => {
   it("compares month keys", () => {
     expect(yearMonthKey({ year: 2019, month: 8 })).toBe(201908);
     expect(formatYearMonth({ year: 2019, month: 8 })).toBe("Aug 2019");
+    expect(formatYearMonthRange({ year: 2019, month: 8 }, { year: 2019, month: 8 })).toBe(
+      "Aug 2019",
+    );
+    expect(formatYearMonthRange({ year: 1992, month: 1 }, { year: 2027, month: 12 })).toBe(
+      "Jan 1992 – Dec 2027",
+    );
     expect(formatTripDate("15/08/2019")).toBe("15 Aug 2019");
     expect(formatTripDate("2019-08-12")).toBe("12 Aug 2019");
     expect(formatTripDate("2/2020")).toBe("Feb 2020");

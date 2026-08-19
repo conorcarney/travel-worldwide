@@ -25,6 +25,10 @@ describe("fetchApiList", () => {
       data: [{ name: "Ireland" }],
     });
     expect(fetch).toHaveBeenCalledWith("/api/visited");
+
+    const signal = new AbortController().signal;
+    await fetchApiList("/api/visited", { signal });
+    expect(fetch).toHaveBeenCalledWith("/api/visited", { signal });
   });
 
   it("returns an error payload when the response is not ok", async () => {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
+import L from "leaflet";
 import type {
   GeoJSON as LeafletGeoJSON,
   Layer,
@@ -52,28 +53,45 @@ export function VisitedCountriesLayer({
     map.createPane(COUNTRIES_PANE).style.zIndex = "350";
   }
   const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
+  const namesRef = useRef({ visitedNames, blogCountryNames });
+  namesRef.current = { visitedNames, blogCountryNames };
   const data = countries as FeatureCollection<Geometry>;
+  const renderer = useMemo(
+    () => L.canvas({ padding: 0.5, pane: COUNTRIES_PANE }),
+    [],
+  );
+  const fillKey = `${[...visitedNames].join("|")}::${[...blogCountryNames].join("|")}`;
 
   function style(feature?: Feature) {
-    const status = featureCountryStatus(
-      feature?.properties as Record<string, unknown> | undefined,
-      visitedNames,
-      blogCountryNames,
+    const names = namesRef.current;
+    return countryBaseStyle(
+      featureCountryStatus(
+        feature?.properties as Record<string, unknown> | undefined,
+        names.visitedNames,
+        names.blogCountryNames,
+      ),
     );
-    return countryBaseStyle(status);
   }
 
-  function onEachFeature(feature: Feature, layer: Layer) {
-    const properties = feature.properties as Record<string, unknown> | undefined;
-    const status = featureCountryStatus(
-      properties,
-      visitedNames,
-      blogCountryNames,
-    );
+  useEffect(() => {
+    const layer = geoJsonRef.current;
+    if (!layer) return;
+    layer.options.style = style;
+    layer.resetStyle();
+  }, [fillKey]);
 
+  function onEachFeature(_feature: Feature, layer: Layer) {
     layer.on({
       mouseover: (event: LeafletMouseEvent) => {
-        const target = event.target as LeafletGeoJSON;
+        const target = event.target as LeafletGeoJSON & {
+          feature?: Feature;
+        };
+        const names = namesRef.current;
+        const status = featureCountryStatus(
+          target.feature?.properties as Record<string, unknown> | undefined,
+          names.visitedNames,
+          names.blogCountryNames,
+        );
         target.setStyle(countryHoverStyle(status));
         if (typeof target.bringToFront === "function") {
           target.bringToFront();
@@ -91,9 +109,10 @@ export function VisitedCountriesLayer({
       <InvalidateSizeOnMount />
       <GeoJSON
         ref={geoJsonRef}
-        key={`visited-${visitedNames.size}-${blogCountryNames.size}-${countries.features.length}`}
+        key={`countries-${countries.features.length}`}
         data={data}
         pane={COUNTRIES_PANE}
+        renderer={renderer}
         style={style}
         onEachFeature={onEachFeature}
       />

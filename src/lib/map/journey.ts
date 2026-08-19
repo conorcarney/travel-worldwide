@@ -41,25 +41,45 @@ export function journeyDurationMs(
   return Math.max(MIN_SCALED_DURATION_MS, Math.round(base / safeSpeed));
 }
 
-/** Zoom in one level past a fitted route, clamped for follow-cam use. */
+/** Zoom in past a fitted route so follow-cam stays close to the vehicle. */
 export function followZoom(boundsZoom: number): number {
-  if (!Number.isFinite(boundsZoom)) return 6;
-  return Math.min(11, Math.max(3, Math.round(boundsZoom) + 1));
+  if (!Number.isFinite(boundsZoom)) return 12;
+  return Math.min(16, Math.max(9, Math.round(boundsZoom) + 7));
 }
 
 /**
  * CSS transform that keeps Leaflet's pan and rotates the map so `bearing`
  * (0° north, clockwise) faces the top of the viewport.
+ * `pitch` tilts the map into a chase-cam view (degrees around X).
  */
 export function headingPaneTransform(
   pos: { x: number; y: number },
   size: { x: number; y: number },
   bearing: number,
+  pitch = 0,
 ): string {
   const cx = size.x / 2 - pos.x;
   const cy = size.y / 2 - pos.y;
   const angle = -bearing;
-  return `translate3d(${pos.x}px, ${pos.y}px, 0px) translate(${cx}px, ${cy}px) rotate(${angle}deg) translate(${-cx}px, ${-cy}px)`;
+  const pan = `translate3d(${pos.x}px, ${pos.y}px, 0px)`;
+  const toCenter = `translate(${cx}px, ${cy}px)`;
+  const fromCenter = `translate(${-cx}px, ${-cy}px)`;
+  if (pitch <= 0) {
+    return `${pan} ${toCenter} rotate(${angle}deg) ${fromCenter}`;
+  }
+  const pitchRad = (pitch * Math.PI) / 180;
+  const scale = 1 / Math.max(0.42, Math.cos(pitchRad)) * 1.06;
+  const yShift = size.y * 0.18;
+  return `translateY(${yShift}px) ${pan} ${toCenter} rotateX(${pitch}deg) rotateZ(${angle}deg) scale(${scale}) ${fromCenter}`;
+}
+
+/** Chase-cam tilt while a journey is followed. */
+export const FOLLOW_PITCH_DEG = 52;
+
+/** Keep the vehicle on the route and fully in front of the map surface. */
+export function vehicleFollowTransform(bearing: number, pitch = 0): string {
+  if (pitch <= 0) return `rotate(${bearing}deg)`;
+  return `rotate(${bearing}deg)`;
 }
 
 /**
@@ -67,11 +87,16 @@ export function headingPaneTransform(
  * `pad(ratio)` grows each side by `ratio` of the viewport, so the loaded
  * square covers the viewport diagonal at any heading.
  */
-export function rotationTilePadRatio(size: { x: number; y: number }): number {
+export function rotationTilePadRatio(
+  size: { x: number; y: number },
+  pitchDeg = 0,
+): number {
   const width = Math.max(1, size.x);
   const height = Math.max(1, size.y);
-  const scale = Math.hypot(width, height) / Math.min(width, height);
-  return (scale - 1) / 2 + 0.08;
+  const rotScale = Math.hypot(width, height) / Math.min(width, height);
+  const pitchScale =
+    1 / Math.max(0.4, Math.cos((Math.max(0, pitchDeg) * Math.PI) / 180));
+  return (rotScale * pitchScale - 1) / 2 + 0.08;
 }
 
 /** Initial bearing 0° is north, clockwise, matching CSS rotate on a north-facing icon. */

@@ -17,21 +17,16 @@ const MODE_LABELS: Record<TravelMode, string> = {
 type TravelStatsProps = {
   stats: TravelStatsSummary;
   countriesByYear: CountriesByYearRow[];
-  yearStart: number;
-  yearEnd: number;
+  rangeLabel: string;
   asOfLabel: string;
 };
 
 export function TravelStats({
   stats,
   countriesByYear,
-  yearStart,
-  yearEnd,
+  rangeLabel,
   asOfLabel,
 }: TravelStatsProps) {
-  const yearLabel =
-    yearStart === yearEnd ? String(yearStart) : `${yearStart}–${yearEnd}`;
-
   return (
     <section
       className="border-t border-border bg-surface px-4 py-6 sm:px-6"
@@ -45,7 +40,7 @@ export function TravelStats({
         Travel totals
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Distances and trip counts for {yearLabel}, based on mapped routes
+        Distances and trip counts for {rangeLabel}, based on mapped routes
         {asOfLabel ? ` · as of ${asOfLabel}` : ""}.
       </p>
 

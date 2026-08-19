@@ -1,25 +1,5 @@
-import { z } from "zod";
 import type { PathOptions } from "leaflet";
 import type { MongoVisited } from "@/lib/validations/map-data";
-
-const countryFeatureSchema = z.object({
-  type: z.literal("Feature").optional(),
-  properties: z
-    .object({
-      name: z.string().optional().nullable(),
-      name_long: z.string().optional().nullable(),
-      admin: z.string().optional().nullable(),
-      brk_name: z.string().optional().nullable(),
-      formal_en: z.string().optional().nullable(),
-    })
-    .passthrough(),
-  geometry: z.unknown(),
-});
-
-const countryCollectionSchema = z.object({
-  type: z.literal("FeatureCollection").optional(),
-  features: z.array(countryFeatureSchema),
-});
 
 export type CountryFeatureCollection = {
   type: "FeatureCollection";
@@ -201,16 +181,29 @@ export function countryHoverStyle(status: CountryFillStatus): PathOptions {
 /** CountryList stores one FeatureCollection document in Mongo. */
 export function normalizeCountryList(data: unknown[]): CountryFeatureCollection {
   for (const item of data) {
-    const parsed = countryCollectionSchema.safeParse(item);
-    if (!parsed.success) continue;
+    if (!item || typeof item !== "object") continue;
+    const features = (item as { features?: unknown }).features;
+    if (!Array.isArray(features)) continue;
 
     return {
       type: "FeatureCollection",
-      features: parsed.data.features.map((feature) => ({
-        type: "Feature" as const,
-        properties: feature.properties as Record<string, unknown>,
-        geometry: feature.geometry,
-      })),
+      features: features.flatMap((feature) => {
+        if (!feature || typeof feature !== "object") return [];
+        const record = feature as {
+          properties?: unknown;
+          geometry?: unknown;
+        };
+        return [
+          {
+            type: "Feature" as const,
+            properties:
+              record.properties && typeof record.properties === "object"
+                ? (record.properties as Record<string, unknown>)
+                : {},
+            geometry: record.geometry,
+          },
+        ];
+      }),
     };
   }
 

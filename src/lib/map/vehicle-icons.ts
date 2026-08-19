@@ -1,11 +1,30 @@
 import { ROUTE_COLORS } from "@/lib/map/normalize";
+import { vehicleFollowTransform } from "@/lib/map/journey";
 import type { TravelMode } from "@/lib/validations/map-data";
 
 function svg(color: string, body: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">${body.replace(
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="44" height="44" aria-hidden="true">${body.replace(
     /COLOR/g,
     color,
   )}</svg>`;
+}
+
+function darken(hex: string, factor: number): string {
+  const raw = hex.replace("#", "");
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  const value = Number.parseInt(normalized, 16);
+  if (!Number.isFinite(value)) return hex;
+  const channel = (shift: number) =>
+    Math.round(((value >> shift) & 255) * factor)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(16)}${channel(8)}${channel(0)}`;
 }
 
 const BODIES: Record<TravelMode, string> = {
@@ -24,14 +43,20 @@ const BODIES: Record<TravelMode, string> = {
   ].join(""),
 };
 
+function extrudedBody(top: string, color: string): string {
+  const side = top.replace(/COLOR/g, darken(color, 0.55));
+  return `<g transform="translate(0 2)" opacity=".9">${side}</g><g>${top}</g>`;
+}
+
 export function vehicleSvg(mode: TravelMode, color: string = ROUTE_COLORS[mode]): string {
-  return svg(color, BODIES[mode]);
+  return svg(color, extrudedBody(BODIES[mode], color));
 }
 
 export function vehicleIconHtml(
   mode: TravelMode,
   bearing: number,
   color: string = ROUTE_COLORS[mode],
+  pitch = 0,
 ): string {
-  return `<div class="travel-vehicle-icon-inner" data-testid="journey-vehicle" style="transform:rotate(${bearing}deg)">${vehicleSvg(mode, color)}</div>`;
+  return `<div class="travel-vehicle-icon-inner" data-testid="journey-vehicle" style="transform:${vehicleFollowTransform(bearing, pitch)}">${vehicleSvg(mode, color)}</div>`;
 }
