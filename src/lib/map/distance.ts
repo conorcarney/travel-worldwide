@@ -1,4 +1,5 @@
 import type { MapRoute, TravelMode } from "@/lib/validations/map-data";
+import { shortestLngDelta } from "@/lib/map/lng";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -19,7 +20,7 @@ export function haversineKm(
   const [lat1, lng1] = from;
   const [lat2, lng2] = to;
   const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
+  const dLng = toRad(shortestLngDelta(lng1, lng2));
   const sinDLat = Math.sin(dLat / 2);
   const sinDLng = Math.sin(dLng / 2);
   const a =

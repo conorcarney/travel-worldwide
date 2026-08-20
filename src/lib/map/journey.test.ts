@@ -15,6 +15,7 @@ import {
   shortestAngleDelta,
   vehicleFollowTransform,
   FOLLOW_PITCH_DEG,
+  hasRouteTag,
 } from "@/lib/map/journey";
 
 describe("journeyDurationMs", () => {
@@ -95,6 +96,22 @@ describe("followZoom", () => {
     expect(followZoom(2)).toBe(9);
     expect(followZoom(14)).toBe(16);
     expect(followZoom(Number.NaN)).toBe(12);
+  });
+
+  it("zooms out by four levels for flights", () => {
+    expect(followZoom(5, 4)).toBe(8);
+    expect(followZoom(2, 4)).toBe(5);
+    expect(followZoom(14, 4)).toBe(12);
+    expect(followZoom(Number.NaN, 4)).toBe(8);
+  });
+});
+
+describe("hasRouteTag", () => {
+  it("matches a comma-separated tag without regard to case", () => {
+    expect(hasRouteTag("Work, Long distance", "Long distance")).toBe(true);
+    expect(hasRouteTag("long distance", "Long distance")).toBe(true);
+    expect(hasRouteTag("Work, Family", "Long distance")).toBe(false);
+    expect(hasRouteTag("", "Long distance")).toBe(false);
   });
 });
 

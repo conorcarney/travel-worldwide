@@ -1,14 +1,14 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
-import { revealAdminForm } from "@/lib/admin/focus-form";
+import { useEffect, useState } from "react";
 import {
   dateSortKey,
   nextSortState,
   sortRows,
   type SortState,
 } from "@/lib/admin/table-sort";
+import { AdminInlineInput } from "@/components/admin/AdminInlineField";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { normalizeCountryList } from "@/lib/map/countries";
 import {
@@ -43,6 +43,7 @@ export function VisitedAdmin() {
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
   const [form, setForm] = useState<VisitedFormState>(EMPTY_FORM_STATE);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [rowDraft, setRowDraft] = useState<VisitedFormState | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,16 +51,17 @@ export function VisitedAdmin() {
     key: "name",
     direction: "asc",
   });
-  const formRef = useRef<HTMLFormElement>(null);
 
   const sortedVisited = sortRows(visited, sort, {
     name: (item) => item.name ?? "",
     date: (item) => dateSortKey(item.date ?? ""),
   });
 
-  async function loadVisited() {
-    setStatus("loading");
-    setMessage(null);
+  async function loadVisited(quiet = false) {
+    if (!quiet) {
+      setStatus("loading");
+      setMessage(null);
+    }
     try {
       const [visitedRes, countryListRes] = await Promise.all([
         fetch("/api/visited"),
@@ -115,54 +117,89 @@ export function VisitedAdmin() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateRow<K extends keyof VisitedFormState>(
+    key: K,
+    value: VisitedFormState[K],
+  ) {
+    setRowDraft((current) =>
+      current ? { ...current, [key]: value } : current,
+    );
+  }
+
   function startEdit(item: VisitedRecord) {
     setEditingId(item._id);
-    setForm(toFormState(item));
+    setRowDraft(toFormState(item));
     setMessage(null);
-    revealAdminForm(formRef.current);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setRowDraft(null);
   }
 
   function resetForm() {
-    setEditingId(null);
     setForm(EMPTY_FORM_STATE);
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage(null);
-
+  async function saveRecord(payload: VisitedFormState, id?: string) {
     const parsed = visitedWriteSchema.safeParse({
-      name: form.name,
-      date: form.date,
-      other_visit_dates: form.other_visit_dates,
+      name: payload.name,
+      date: payload.date,
+      other_visit_dates: payload.other_visit_dates,
     });
     if (!parsed.success) {
       setMessage(parsed.error.issues[0]?.message ?? "Invalid country");
-      return;
+      return false;
     }
 
     setSaving(true);
     try {
       const response = await fetch(
-        editingId ? `/api/visited/${editingId}` : "/api/visited",
+        id ? `/api/visited/${id}` : "/api/visited",
         {
-          method: editingId ? "PUT" : "POST",
+          method: id ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parsed.data),
         },
       );
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
+      const body = (await response.json()) as {
+        ok: boolean;
+        data?: VisitedRecord;
+        error?: string;
+      };
+      if (!response.ok || !body.ok || !body.data) {
         throw new Error(body.error ?? "Save failed");
       }
-      resetForm();
-      await loadVisited();
-      setMessage(editingId ? "Visited country updated." : "Visited country added.");
+      const saved = body.data;
+      if (id) {
+        cancelEdit();
+        setVisited((current) =>
+          current.map((row) => (row._id === id ? saved : row)),
+        );
+      } else {
+        resetForm();
+        setVisited((current) => [saved, ...current]);
+      }
+      setMessage(id ? "Visited country updated." : "Visited country added.");
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Save failed");
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+    await saveRecord(form);
+  }
+
+  async function saveRow() {
+    if (!editingId || !rowDraft) return;
+    setMessage(null);
+    await saveRecord(rowDraft, editingId);
   }
 
   async function onDelete(id: string) {
@@ -174,8 +211,8 @@ export function VisitedAdmin() {
       if (!response.ok || !body.ok) {
         throw new Error(body.error ?? "Delete failed");
       }
-      if (editingId === id) resetForm();
-      await loadVisited();
+      if (editingId === id) cancelEdit();
+      setVisited((current) => current.filter((row) => row._id !== id));
       setMessage("Visited country removed.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delete failed");
@@ -196,13 +233,12 @@ export function VisitedAdmin() {
       </div>
 
       <form
-        ref={formRef}
         onSubmit={onSubmit}
         className="grid gap-4 border border-border bg-surface/60 p-4 sm:grid-cols-2"
         data-testid="visited-form"
       >
         <h2 className="font-display text-xl text-foreground sm:col-span-2">
-          {editingId ? "Update visited country" : "Add visited country"}
+          Add visited country
         </h2>
 
         <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2">
@@ -254,21 +290,8 @@ export function VisitedAdmin() {
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             data-testid="visited-save"
           >
-            {saving
-              ? "Saving…"
-              : editingId
-                ? "Update country"
-                : "Add country"}
+            {saving ? "Saving…" : "Add country"}
           </button>
-          {editingId ? (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="rounded-md border border-border px-4 py-2 text-sm text-foreground"
-            >
-              Cancel edit
-            </button>
-          ) : null}
         </div>
       </form>
 
@@ -326,36 +349,110 @@ export function VisitedAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {sortedVisited.map((item) => (
-                  <tr
-                    key={item._id}
-                    className="border-t border-border text-foreground"
-                  >
-                    <td className="px-3 py-2 align-top">{item.name}</td>
-                    <td className="px-3 py-2 align-top text-muted">
-                      {item.date || "—"}
-                    </td>
-                    <td className="px-3 py-2 align-top text-muted">
-                      {item.other_visit_dates || "—"}
-                    </td>
-                    <td className="px-3 py-2 align-top whitespace-nowrap">
-                      <button
-                        type="button"
-                        className="mr-3 text-accent hover:underline"
-                        onClick={() => startEdit(item)}
+                {sortedVisited.map((item) => {
+                  const editing = editingId === item._id ? rowDraft : null;
+                  if (!editing) {
+                    return (
+                      <tr
+                        key={item._id}
+                        className="border-t border-border text-foreground"
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-red-300 hover:underline"
-                        onClick={() => void onDelete(item._id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-3 py-2 align-top">{item.name}</td>
+                        <td className="px-3 py-2 align-top text-muted">
+                          {item.date || "—"}
+                        </td>
+                        <td className="px-3 py-2 align-top text-muted">
+                          {item.other_visit_dates || "—"}
+                        </td>
+                        <td className="px-3 py-2 align-top whitespace-nowrap">
+                          <button
+                            type="button"
+                            className="mr-3 text-accent hover:underline"
+                            onClick={() => startEdit(item)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-300 hover:underline"
+                            onClick={() => void onDelete(item._id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <tr
+                      key={item._id}
+                      className="border-t border-border bg-surface/70 text-foreground"
+                      data-testid="visited-inline-row"
+                    >
+                      <td className="px-3 py-2 align-top">
+                        <AdminInlineInput
+                          value={editing.name}
+                          onChange={(event) =>
+                            updateRow("name", event.target.value)
+                          }
+                          onSave={() => void saveRow()}
+                          onCancel={cancelEdit}
+                          list="visited-country-options"
+                          data-testid="visited-inline-name"
+                        />
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <AdminInlineInput
+                          value={editing.date}
+                          onChange={(event) =>
+                            updateRow("date", event.target.value)
+                          }
+                          onSave={() => void saveRow()}
+                          onCancel={cancelEdit}
+                          data-testid="visited-inline-date"
+                        />
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <AdminInlineInput
+                          value={editing.other_visit_dates}
+                          onChange={(event) =>
+                            updateRow("other_visit_dates", event.target.value)
+                          }
+                          onSave={() => void saveRow()}
+                          onCancel={cancelEdit}
+                          data-testid="visited-inline-other-dates"
+                        />
+                      </td>
+                      <td className="px-3 py-2 align-top whitespace-nowrap">
+                        <button
+                          type="button"
+                          className="mr-3 text-accent hover:underline disabled:opacity-60"
+                          disabled={saving}
+                          onClick={() => void saveRow()}
+                          data-testid="visited-inline-save"
+                        >
+                          {saving ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className="mr-3 text-foreground hover:underline"
+                          onClick={cancelEdit}
+                          data-testid="visited-inline-cancel"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-300 hover:underline"
+                          onClick={() => void onDelete(item._id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {sortedVisited.length === 0 ? (

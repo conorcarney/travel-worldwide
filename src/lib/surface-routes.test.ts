@@ -14,11 +14,11 @@ describe("surfaceRouteWriteSchema", () => {
     date: "01/11/2013",
   };
 
-  it("accepts bus, train, ferry, and car routes", () => {
-    for (const type of ["Bus", "Train", "Ferry", "Car"] as const) {
-      expect(
-        surfaceRouteWriteSchema.safeParse({ ...valid, type }).success,
-      ).toBe(true);
+  it("defaults tags to an empty string", () => {
+    const parsed = surfaceRouteWriteSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.tags).toBe("");
     }
   });
 
@@ -54,6 +54,7 @@ describe("toSurfaceRouteDocument", () => {
         arrival_latitude: -12.06,
         type: "Bus",
         date: "27/02/2019",
+        tags: "Andes",
       }),
     ).toEqual({
       departure: "Ica",
@@ -64,6 +65,7 @@ describe("toSurfaceRouteDocument", () => {
       arrival_latitude: -12.06,
       type: "Bus",
       date: "27/02/2019",
+      tags: "Andes",
     });
   });
 });

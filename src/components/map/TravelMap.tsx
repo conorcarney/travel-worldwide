@@ -738,10 +738,12 @@ export default function TravelMap() {
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            keepBuffer={16}
-            updateWhenIdle={false}
+            keepBuffer={1}
+            updateWhenIdle={true}
+            updateWhenZooming={false}
+            updateInterval={400}
           />
-          <CoverRotatedViewport />
+          <CoverRotatedViewport active={Boolean(activeJourney)} />
 
           {layers.visited && countries.features.length > 0 ? (
             <VisitedCountriesLayer

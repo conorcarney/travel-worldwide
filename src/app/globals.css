@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./vehicle-3d.css";
 
 :root {
   --background: #0b1c24;
@@ -46,42 +47,4 @@ button:disabled,
 [type="reset"]:disabled,
 select:disabled {
   cursor: not-allowed;
-}
-
-.travel-vehicle-icon {
-  overflow: visible !important;
-  background: none !important;
-  border: none !important;
-  pointer-events: none;
-}
-
-.travel-vehicle-icon-inner {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  align-items: center;
-  justify-content: center;
-  transform-origin: 24px 24px;
-  will-change: transform;
-}
-
-.travel-vehicle-icon-inner svg {
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45));
-}
-
-.leaflet-container.travel-follow-3d {
-  perspective: 1200px;
-  perspective-origin: 50% 64%;
-}
-
-.leaflet-container.travel-follow-3d .leaflet-map-pane {
-  transform-style: preserve-3d;
-}
-
-.leaflet-vehicle-pane,
-.leaflet-pane.vehiclePane {
-  z-index: 680;
-  overflow: visible;
 }

@@ -14,6 +14,7 @@ export const mongoFlightSchema = z.object({
   departure_coordinates: lngLatStringSchema,
   connecting_coordinates: z.string().optional().nullable(),
   arrival_coordinates: lngLatStringSchema,
+  tags: z.string().optional(),
 });
 
 export const mongoSurfaceRouteSchema = z.object({
@@ -26,6 +27,7 @@ export const mongoSurfaceRouteSchema = z.object({
   arrival_latitude: coordinateSchema,
   type: z.enum(["Bus", "Train", "Ferry", "Car"]),
   date: z.string(),
+  tags: z.string().optional(),
 });
 
 export const mongoVisitedSchema = z.object({
@@ -84,6 +86,7 @@ export const mapRouteSchema = z.object({
   date: z.string(),
   path: z.array(z.tuple([z.number(), z.number()])).min(2),
   distanceKm: z.number().nonnegative(),
+  tags: z.string().optional(),
 });
 
 /** Normalized bookmark point. */

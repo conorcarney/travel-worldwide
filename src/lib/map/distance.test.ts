@@ -17,6 +17,12 @@ describe("haversineKm", () => {
     expect(km).toBeGreaterThan(700);
     expect(km).toBeLessThan(750);
   });
+
+  it("uses the short Pacific distance for Brisbane to Los Angeles", () => {
+    const km = haversineKm([-27.47, 153.03], [33.94, -118.41]);
+    expect(km).toBeGreaterThan(11000);
+    expect(km).toBeLessThan(13000);
+  });
 });
 
 describe("pathDistanceKm", () => {

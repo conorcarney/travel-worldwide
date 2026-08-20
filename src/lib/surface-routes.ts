@@ -56,6 +56,7 @@ export function toSurfaceRouteDocument(input: SurfaceRouteWriteInput) {
     arrival_latitude: input.arrival_latitude,
     type: input.type,
     date: input.date,
+    tags: input.tags ?? "",
   };
 }
 

@@ -1,5 +1,6 @@
 import { haversineKm } from "@/lib/map/distance";
 import type { LatLngTuple } from "@/lib/map/flight-curve";
+import { shortestLngDelta } from "@/lib/map/lng";
 
 export type JourneySample = {
   position: LatLngTuple;
@@ -17,6 +18,15 @@ export type PlaybackSpeedId = (typeof PLAYBACK_SPEEDS)[number]["id"];
 
 export function playbackSpeedMultiplier(id: PlaybackSpeedId): number {
   return PLAYBACK_SPEEDS.find((speed) => speed.id === id)?.multiplier ?? 1;
+}
+
+/** True when `tags` contains the given label (comma-separated, case-insensitive). */
+export function hasRouteTag(tags: string | undefined, tag: string): boolean {
+  const needle = tag.trim().toLowerCase();
+  if (!needle) return false;
+  return (tags ?? "")
+    .split(",")
+    .some((part) => part.trim().toLowerCase() === needle);
 }
 
 const MIN_DURATION_MS = 900;
@@ -42,9 +52,11 @@ export function journeyDurationMs(
 }
 
 /** Zoom in past a fitted route so follow-cam stays close to the vehicle. */
-export function followZoom(boundsZoom: number): number {
-  if (!Number.isFinite(boundsZoom)) return 12;
-  return Math.min(16, Math.max(9, Math.round(boundsZoom) + 7));
+export function followZoom(boundsZoom: number, zoomOut = 0): number {
+  const extra = Number.isFinite(zoomOut) ? Math.max(0, zoomOut) : 0;
+  if (!Number.isFinite(boundsZoom)) return Math.max(2, 12 - extra);
+  const close = Math.min(16, Math.max(9, Math.round(boundsZoom) + 7));
+  return Math.max(2, close - extra);
 }
 
 /**
@@ -110,7 +122,7 @@ export function geographicBearing(from: LatLngTuple, to: LatLngTuple): number {
   const toRad = (degrees: number) => (degrees * Math.PI) / 180;
   const φ1 = toRad(lat1);
   const φ2 = toRad(lat2);
-  const Δλ = toRad(lng2 - lng1);
+  const Δλ = toRad(shortestLngDelta(lng1, lng2));
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x =
     Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);

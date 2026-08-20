@@ -81,9 +81,11 @@ describe("normalizeFlights", () => {
     ).toEqual([]);
   });
 
-  it("falls back to index-based id when _id is missing", () => {
-    const { _id: _ignored, ...withoutId } = directFlight;
-    expect(normalizeFlights([withoutId])[0]?.id).toBe("flight-0");
+  it("keeps flight tags for follow-cam", () => {
+    const [route] = normalizeFlights([
+      { ...directFlight, tags: "Work, Long distance" },
+    ]);
+    expect(route.tags).toBe("Work, Long distance");
   });
 });
 

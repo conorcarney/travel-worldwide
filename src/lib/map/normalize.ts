@@ -65,6 +65,7 @@ export function normalizeFlights(data: unknown[]): MapRoute[] {
       from: flight.departure,
       to: flight.arrival,
       date: flight.date,
+      tags: flight.tags ?? "",
       // Distance uses real waypoints; display path is curved for the map.
       distanceKm: pathDistanceKm(path),
       path: curveFlightPath(path),
@@ -96,6 +97,7 @@ export function normalizeSurfaceRoutes(data: unknown[]): MapRoute[] {
       from: route.departure,
       to: route.arrival,
       date: route.date,
+      tags: route.tags ?? "",
       path,
       distanceKm: pathDistanceKm(path),
     });

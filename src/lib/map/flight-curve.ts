@@ -1,8 +1,12 @@
+import { shortestLngDelta } from "@/lib/map/lng";
+
 export type LatLngTuple = [number, number];
 
 /**
  * Build a quadratic curve between two points, bowing to the left of
  * travel direction so A→B and B→A take opposite arcs.
+ * Longitude uses the short way around the globe so Pacific routes do
+ * not interpolate across Africa and Asia.
  */
 export function curveSegment(
   from: LatLngTuple,
@@ -15,7 +19,8 @@ export function curveSegment(
   const [lat2, lng2] = to;
 
   const dLat = lat2 - lat1;
-  const dLng = lng2 - lng1;
+  const dLng = shortestLngDelta(lng1, lng2);
+  const lngTo = lng1 + dLng;
   const distance = Math.hypot(dLat, dLng);
 
   if (distance < 1e-9) {
@@ -27,7 +32,7 @@ export function curveSegment(
   const offsetLng = (dLat / distance) * distance * curvature;
   const control: LatLngTuple = [
     (lat1 + lat2) / 2 + offsetLat,
-    (lng1 + lng2) / 2 + offsetLng,
+    (lng1 + lngTo) / 2 + offsetLng,
   ];
 
   const points: LatLngTuple[] = [];
@@ -40,9 +45,13 @@ export function curveSegment(
         t * t * lat2,
       oneMinusT * oneMinusT * lng1 +
         2 * oneMinusT * t * control[1] +
-        t * t * lng2,
+        t * t * lngTo,
     ]);
   }
+
+  points[0] = from;
+  points[points.length - 1] =
+    Math.abs(lngTo - lng2) < 1e-6 ? to : [lat2, lngTo];
 
   return points;
 }

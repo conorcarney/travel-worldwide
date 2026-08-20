@@ -13,8 +13,12 @@ describe("flightWriteSchema", () => {
     arrival_coordinates: "2.1115, 49.4545",
   };
 
-  it("accepts a valid flight payload", () => {
-    expect(flightWriteSchema.safeParse(valid).success).toBe(true);
+  it("defaults tags to an empty string", () => {
+    const parsed = flightWriteSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.tags).toBe("");
+    }
   });
 
   it("rejects bad coordinates", () => {
@@ -47,6 +51,7 @@ describe("toFlightDocument", () => {
         departure_coordinates: "-6.2603,53.3498",
         connecting_coordinates: "",
         arrival_coordinates: "2.1115,  49.4545",
+        tags: "Work",
       }),
     ).toEqual({
       departure: "Dublin",
@@ -56,6 +61,7 @@ describe("toFlightDocument", () => {
       departure_coordinates: "-6.2603, 53.3498",
       connecting_coordinates: "",
       arrival_coordinates: "2.1115, 49.4545",
+      tags: "Work",
     });
   });
 });

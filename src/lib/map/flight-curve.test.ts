@@ -11,6 +11,16 @@ describe("curveSegment", () => {
     expect(curved.at(-1)).toEqual([49.45, 2.11]);
   });
 
+  it("takes the Pacific for Brisbane to Los Angeles", () => {
+    const brisbane: [number, number] = [-27.47, 153.03];
+    const losAngeles: [number, number] = [33.94, -118.41];
+    const curved = curveSegment(brisbane, losAngeles, { segments: 8 });
+    const midLng = curved[4]![1];
+    expect(midLng).toBeGreaterThan(170);
+    expect(midLng).toBeLessThan(250);
+    expect(curved.every(([, lng]) => lng > 140)).toBe(true);
+  });
+
   it("curves opposite directions for outbound vs return", () => {
     const outbound = curveSegment([0, 0], [0, 10], { segments: 2, curvature: 0.2 });
     const inbound = curveSegment([0, 10], [0, 0], { segments: 2, curvature: 0.2 });

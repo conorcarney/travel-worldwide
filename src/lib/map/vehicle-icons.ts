@@ -2,14 +2,7 @@ import { ROUTE_COLORS } from "@/lib/map/normalize";
 import { vehicleFollowTransform } from "@/lib/map/journey";
 import type { TravelMode } from "@/lib/validations/map-data";
 
-function svg(color: string, body: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="44" height="44" aria-hidden="true">${body.replace(
-    /COLOR/g,
-    color,
-  )}</svg>`;
-}
-
-function darken(hex: string, factor: number): string {
+function hexChannels(hex: string): [number, number, number] | null {
   const raw = hex.replace("#", "");
   const normalized =
     raw.length === 3
@@ -18,38 +11,158 @@ function darken(hex: string, factor: number): string {
           .map((part) => `${part}${part}`)
           .join("")
       : raw;
+  if (normalized.length !== 6) return null;
   const value = Number.parseInt(normalized, 16);
-  if (!Number.isFinite(value)) return hex;
-  const channel = (shift: number) =>
-    Math.round(((value >> shift) & 255) * factor)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(16)}${channel(8)}${channel(0)}`;
+  if (!Number.isFinite(value)) return null;
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-const BODIES: Record<TravelMode, string> = {
-  flight: [
-    `<path fill="COLOR" stroke="#fff" stroke-width="1.1" stroke-linejoin="round" d="M16 2.2c.8 0 1.5 1.3 1.7 3.1l.4 8.2 11.1 3.4v2.1l-11.1-1.2.6 6.4 3.8 2.3v1.8l-5.3-1.3L16 29.6l-1.2-2.6-5.3 1.3v-1.8l3.8-2.3.6-6.4L3.8 16.9v-2.1l11.1-3.4.4-8.2C14.5 3.5 15.2 2.2 16 2.2Z"/>`,
-    `<circle cx="16" cy="9.2" r="1" fill="#fff" opacity=".85"/>`,
+function channelToHex(channel: number): string {
+  return Math.max(0, Math.min(255, Math.round(channel)))
+    .toString(16)
+    .padStart(2, "0");
+}
+
+function darken(hex: string, factor: number): string {
+  const channels = hexChannels(hex);
+  if (!channels) return hex;
+  return `#${channels.map((channel) => channelToHex(channel * factor)).join("")}`;
+}
+
+function mixWhite(hex: string, amount: number): string {
+  const channels = hexChannels(hex);
+  if (!channels) return hex;
+  return `#${channels
+    .map((channel) => channelToHex(channel + (255 - channel) * amount))
+    .join("")}`;
+}
+
+function faces(...classNames: string[]): string {
+  return classNames
+    .map((className) => `<div class="v3d-face ${className}"></div>`)
+    .join("");
+}
+
+function wheels(...slots: string[]): string {
+  return slots
+    .map(
+      (slot) =>
+        `<div class="v3d-wheel v3d-wheel--${slot}"><div class="v3d-wheel-spin"></div></div>`,
+    )
+    .join("");
+}
+
+const MODELS: Record<TravelMode, string> = {
+  car: [
+    `<div class="v3d-shadow"></div>`,
+    `<div class="v3d-rig">`,
+    `<div class="v3d-box v3d-car-body">${faces(
+      "v3d-car-body-top",
+      "v3d-car-body-bottom",
+      "v3d-car-body-front",
+      "v3d-car-body-back",
+      "v3d-car-body-left",
+      "v3d-car-body-right",
+    )}</div>`,
+    `<div class="v3d-box v3d-car-cabin">${faces(
+      "v3d-car-cabin-top",
+      "v3d-car-cabin-front",
+      "v3d-car-cabin-back",
+      "v3d-car-cabin-left",
+      "v3d-car-cabin-right",
+    )}</div>`,
+    wheels("fl", "fr", "rl", "rr"),
+    `</div>`,
   ].join(""),
-  car: `<path fill="COLOR" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" d="M11 6.5h10l3.2 5.2V23H21.5v2h-4v-2h-3v2h-4v-2H7.8V11.7Z"/><rect x="10.2" y="9.2" width="11.6" height="5.2" rx="1" fill="#fff" opacity=".35"/>`,
-  bus: `<path fill="COLOR" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" d="M10 4.5h12c1.2 0 2.2 1 2.2 2.2V24H21.5v2.2h-3.2V24h-4.6v2.2H10.5V24H7.8V6.7c0-1.2 1-2.2 2.2-2.2Z"/><rect x="10" y="7.5" width="12" height="8" rx="1" fill="#fff" opacity=".35"/>`,
-  train: `<path fill="COLOR" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" d="M11 3.8h10c1.5 0 2.7 1.2 2.7 2.7V23H21.2l1.3 3.2h-2.6L19 23h-6l-.9 3.2H9.5L10.8 23H8.3V6.5c0-1.5 1.2-2.7 2.7-2.7Z"/><rect x="11" y="7" width="10" height="7.5" rx="1" fill="#fff" opacity=".35"/>`,
+  bus: [
+    `<div class="v3d-shadow"></div>`,
+    `<div class="v3d-rig">`,
+    `<div class="v3d-box v3d-bus-body">${faces(
+      "v3d-bus-top",
+      "v3d-bus-bottom",
+      "v3d-bus-front",
+      "v3d-bus-back",
+      "v3d-bus-left",
+      "v3d-bus-right",
+    )}</div>`,
+    wheels("fl", "fr", "ml", "mr", "rl", "rr"),
+    `</div>`,
+  ].join(""),
+  train: [
+    `<div class="v3d-shadow"></div>`,
+    `<div class="v3d-rig">`,
+    `<div class="v3d-box v3d-train-body">${faces(
+      "v3d-train-top",
+      "v3d-train-bottom",
+      "v3d-train-front",
+      "v3d-train-back",
+      "v3d-train-left",
+      "v3d-train-right",
+    )}</div>`,
+    wheels("fl", "fr", "rl", "rr"),
+    `</div>`,
+  ].join(""),
   ferry: [
-    `<path fill="COLOR" stroke="#fff" stroke-width="1.15" stroke-linejoin="round" d="M7.2 22.6 16 26.4 24.8 22.6 22.6 20.4H9.4Z"/>`,
-    `<path fill="none" stroke="#fff" stroke-width="1.35" stroke-linecap="round" d="M16 20.6V4.4"/>`,
-    `<path fill="#fff" stroke="#fff" stroke-width="0.8" stroke-linejoin="round" d="M16 5.2 16 19.4 26.2 17.6Z" opacity=".95"/>`,
-    `<path fill="#fff" stroke="#fff" stroke-width="0.8" stroke-linejoin="round" d="M16 7.4 16 18.4 7.6 16.6Z" opacity=".75"/>`,
+    `<div class="v3d-shadow v3d-shadow--wake"></div>`,
+    `<div class="v3d-rig">`,
+    `<div class="v3d-box v3d-ferry-hull">${faces(
+      "v3d-ferry-hull-top",
+      "v3d-ferry-hull-bottom",
+      "v3d-ferry-hull-front",
+      "v3d-ferry-hull-back",
+      "v3d-ferry-hull-left",
+      "v3d-ferry-hull-right",
+    )}</div>`,
+    `<div class="v3d-box v3d-ferry-cabin">${faces(
+      "v3d-ferry-cabin-top",
+      "v3d-ferry-cabin-front",
+      "v3d-ferry-cabin-back",
+      "v3d-ferry-cabin-left",
+      "v3d-ferry-cabin-right",
+    )}</div>`,
+    `<div class="v3d-box v3d-ferry-funnel">${faces(
+      "v3d-ferry-funnel-top",
+      "v3d-ferry-funnel-front",
+      "v3d-ferry-funnel-back",
+      "v3d-ferry-funnel-left",
+      "v3d-ferry-funnel-right",
+    )}</div>`,
+    `</div>`,
+  ].join(""),
+  flight: [
+    `<div class="v3d-shadow"></div>`,
+    `<div class="v3d-rig">`,
+    `<div class="v3d-box v3d-plane-fuse">${faces(
+      "v3d-plane-fuse-top",
+      "v3d-plane-fuse-bottom",
+      "v3d-plane-fuse-front",
+      "v3d-plane-fuse-back",
+      "v3d-plane-fuse-left",
+      "v3d-plane-fuse-right",
+    )}</div>`,
+    `<div class="v3d-box v3d-plane-wing">${faces(
+      "v3d-plane-wing-top",
+      "v3d-plane-wing-bottom",
+    )}</div>`,
+    `<div class="v3d-box v3d-plane-tail">${faces(
+      "v3d-plane-tail-left",
+      "v3d-plane-tail-right",
+    )}</div>`,
+    `<div class="v3d-box v3d-plane-stab">${faces(
+      "v3d-plane-stab-top",
+      "v3d-plane-stab-bottom",
+    )}</div>`,
+    `<div class="v3d-engine v3d-engine--l"><div class="v3d-fan"></div></div>`,
+    `<div class="v3d-engine v3d-engine--r"><div class="v3d-fan"></div></div>`,
+    `</div>`,
   ].join(""),
 };
 
-function extrudedBody(top: string, color: string): string {
-  const side = top.replace(/COLOR/g, darken(color, 0.55));
-  return `<g transform="translate(0 2)" opacity=".9">${side}</g><g>${top}</g>`;
-}
-
-export function vehicleSvg(mode: TravelMode, color: string = ROUTE_COLORS[mode]): string {
-  return svg(color, extrudedBody(BODIES[mode], color));
+export function vehicleModelHtml(
+  mode: TravelMode,
+  color: string = ROUTE_COLORS[mode],
+): string {
+  return `<div class="v3d v3d--${mode}" style="--v3d-body:${color};--v3d-lite:${mixWhite(color, 0.28)};--v3d-shade:${darken(color, 0.72)};--v3d-deep:${darken(color, 0.48)}">${MODELS[mode]}</div>`;
 }
 
 export function vehicleIconHtml(
@@ -58,5 +171,5 @@ export function vehicleIconHtml(
   color: string = ROUTE_COLORS[mode],
   pitch = 0,
 ): string {
-  return `<div class="travel-vehicle-icon-inner" data-testid="journey-vehicle" style="transform:${vehicleFollowTransform(bearing, pitch)}">${vehicleSvg(mode, color)}</div>`;
+  return `<div class="travel-vehicle-icon-inner" data-testid="journey-vehicle" style="transform:${vehicleFollowTransform(bearing, pitch)}">${vehicleModelHtml(mode, color)}</div>`;
 }

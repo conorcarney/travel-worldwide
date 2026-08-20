@@ -12,6 +12,7 @@ import {
   followCameraTarget,
   followZoom,
   headingPaneTransform,
+  hasRouteTag,
   interpolateJourney,
   journeyDurationMs,
   lerpAngle,
@@ -116,7 +117,7 @@ export function JourneyFollow({
     let startTime = 0;
     let pauseStartedAt = 0;
     let pausedMs = 0;
-
+let lastMapPan = 0;
     const complete = () => {
       if (cancelled || finished) return;
       finished = true;
@@ -138,15 +139,22 @@ export function JourneyFollow({
       path.map(([lat, lng]) => L.latLng(lat, lng)),
     );
     const initialSample = interpolateJourney(path, 0);
-    let zoom = 12;
+    const flightZoomOut =
+      route.mode === "flight" && hasRouteTag(route.tags, "Long distance")
+        ? 8
+        : 0;
+    let zoom = followZoom(Number.NaN, flightZoomOut);
     try {
       if (isMapUsable(map)) {
         zoom =
           userZoomRef?.current ??
-          followZoom(map.getBoundsZoom(bounds, false, L.point(72, 72)));
+          followZoom(
+            map.getBoundsZoom(bounds, false, L.point(72, 72)),
+            flightZoomOut,
+          );
       }
     } catch {
-      zoom = userZoomRef?.current ?? 12;
+      zoom = userZoomRef?.current ?? followZoom(Number.NaN, flightZoomOut);
     }
 
     const vehiclePaneName = "vehiclePane";
@@ -163,8 +171,8 @@ export function JourneyFollow({
     const marker = L.marker(start, {
       icon: L.divIcon({
         className: "travel-vehicle-icon",
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
+        iconSize: [72, 72],
+        iconAnchor: [36, 36],
         html: vehicleIconHtml(
           route.mode,
           initialSample.bearing,
@@ -309,7 +317,13 @@ export function JourneyFollow({
         trail.setLatLngs(target.traveled);
         if (!userZooming) {
           programmaticView = true;
-          map.panTo(cameraPos, { animate: false, noMoveStart: true });
+          if (now - lastMapPan >= 30) {
+            map.panTo(cameraPos, {
+              animate: false,
+              noMoveStart: true,
+            });
+            lastMapPan = now;
+          }
           programmaticView = false;
           faceTravel(cameraBearing);
         }
@@ -569,8 +583,10 @@ type PaddedGridLayer = L.GridLayer & {
 };
 
 /** Fetch extra OSM tiles around the viewport so rotation does not show grey corners. */
-export function CoverRotatedViewport() {
+export function CoverRotatedViewport({ active = false }: { active?: boolean }) {
   const map = useMap();
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   useEffect(() => {
     if (!isMapUsable(map)) return;
@@ -580,8 +596,10 @@ export function CoverRotatedViewport() {
       PaddedGridLayer["_getTiledPixelBounds"]
     >();
 
-    const padRatio = () =>
-      rotationTilePadRatio(map.getSize(), FOLLOW_PITCH_DEG);
+    const padRatio = () => 0.5
+      // activeRef.current
+      //   ? rotationTilePadRatio(map.getSize(), FOLLOW_PITCH_DEG)
+      //   : 0;
 
     const patch = (layer: L.Layer) => {
       if (!(layer instanceof L.GridLayer) || originals.has(layer)) return;
@@ -593,24 +611,18 @@ export function CoverRotatedViewport() {
         this: L.GridLayer,
         center: L.LatLng,
       ) {
-        return original.call(this, center).pad(padRatio());
+        const extra = padRatio();
+        const bounds = original.call(this, center);
+        return extra > 0 ? bounds.pad(extra) : bounds;
       };
-      tiled.redraw();
     };
 
     map.eachLayer(patch);
     const onLayerAdd = (event: L.LayerEvent) => patch(event.layer);
-    const onResize = () => {
-      map.eachLayer((layer) => {
-        if (layer instanceof L.GridLayer) layer.redraw();
-      });
-    };
     map.on("layeradd", onLayerAdd);
-    map.on("resize", onResize);
 
     return () => {
       map.off("layeradd", onLayerAdd);
-      map.off("resize", onResize);
       map.eachLayer((layer) => {
         if (!(layer instanceof L.GridLayer)) return;
         const original = originals.get(layer);
@@ -619,6 +631,13 @@ export function CoverRotatedViewport() {
       });
     };
   }, [map]);
+
+  useEffect(() => {
+    if (!active || !isMapUsable(map)) return;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.GridLayer) layer.redraw();
+    });
+  }, [active, map]);
 
   return null;
 }

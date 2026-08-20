@@ -25,6 +25,7 @@ export const flightWriteSchema = z.object({
     )
     .default(""),
   arrival_coordinates: coordinatePairSchema,
+  tags: z.string().trim().optional().default(""),
 });
 
 export type FlightWriteInput = z.infer<typeof flightWriteSchema>;
