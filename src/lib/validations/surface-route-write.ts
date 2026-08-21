@@ -18,6 +18,7 @@ export const surfaceRouteWriteSchema = z.object({
   type: surfaceRouteTypeSchema,
   date: z.string().trim().min(1, "Date is required"),
   tags: z.string().trim().optional().default(""),
+  media: z.string().trim().optional().default(""),
 });
 
 export type SurfaceRouteWriteInput = z.infer<typeof surfaceRouteWriteSchema>;

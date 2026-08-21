@@ -14,11 +14,12 @@ describe("surfaceRouteWriteSchema", () => {
     date: "01/11/2013",
   };
 
-  it("defaults tags to an empty string", () => {
+  it("defaults tags and media to empty strings", () => {
     const parsed = surfaceRouteWriteSchema.safeParse(valid);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.tags).toBe("");
+      expect(parsed.data.media).toBe("");
     }
   });
 
@@ -55,6 +56,7 @@ describe("toSurfaceRouteDocument", () => {
         type: "Bus",
         date: "27/02/2019",
         tags: "Andes",
+        media: "",
       }),
     ).toEqual({
       departure: "Ica",
@@ -66,6 +68,7 @@ describe("toSurfaceRouteDocument", () => {
       type: "Bus",
       date: "27/02/2019",
       tags: "Andes",
+      media: "",
     });
   });
 });

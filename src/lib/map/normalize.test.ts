@@ -81,11 +81,16 @@ describe("normalizeFlights", () => {
     ).toEqual([]);
   });
 
-  it("keeps flight tags for follow-cam", () => {
+  it("keeps flight tags and media for follow-cam", () => {
     const [route] = normalizeFlights([
-      { ...directFlight, tags: "Work, Long distance" },
+      {
+        ...directFlight,
+        tags: "Work, Long distance",
+        media: "https://cdn.example/flight.jpg",
+      },
     ]);
     expect(route.tags).toBe("Work, Long distance");
+    expect(route.media).toBe("https://cdn.example/flight.jpg");
   });
 });
 

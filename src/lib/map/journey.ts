@@ -9,9 +9,11 @@ export type JourneySample = {
 };
 
 export const PLAYBACK_SPEEDS = [
+  { id: "slowest", label: "Slowest", multiplier: 0.25 },
   { id: "slow", label: "Slow", multiplier: 0.5 },
   { id: "normal", label: "Normal", multiplier: 1 },
   { id: "fast", label: "Fast", multiplier: 2 },
+  { id: "fastest", label: "Fastest", multiplier: 4 },
 ] as const;
 
 export type PlaybackSpeedId = (typeof PLAYBACK_SPEEDS)[number]["id"];
@@ -24,9 +26,42 @@ export function playbackSpeedMultiplier(id: PlaybackSpeedId): number {
 export function hasRouteTag(tags: string | undefined, tag: string): boolean {
   const needle = tag.trim().toLowerCase();
   if (!needle) return false;
-  return (tags ?? "")
-    .split(",")
-    .some((part) => part.trim().toLowerCase() === needle);
+  return parseRouteTags(tags).some((part) => part.toLowerCase() === needle);
+}
+
+export function parseRouteTags(tags: string | undefined): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const part of (tags ?? "").split(",")) {
+    const label = part.trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    labels.push(label);
+  }
+  return labels;
+}
+
+export function collectRouteTags(routes: { tags?: string }[]): string[] {
+  const byKey = new Map<string, string>();
+  for (const route of routes) {
+    for (const tag of parseRouteTags(route.tags)) {
+      const key = tag.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, tag);
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
+}
+
+export function filterRoutesByTag<T extends { tags?: string }>(
+  routes: T[],
+  tag: string,
+): T[] {
+  if (!tag.trim()) return routes;
+  return routes.filter((route) => hasRouteTag(route.tags, tag));
 }
 
 const MIN_DURATION_MS = 900;

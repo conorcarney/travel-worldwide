@@ -58,6 +58,7 @@ export function toFlightDocument(input: FlightWriteInput) {
       : "",
     arrival_coordinates: normalizeCoordinatePair(input.arrival_coordinates),
     tags: input.tags ?? "",
+    media: input.media ?? "",
   };
 }
 

@@ -5,6 +5,7 @@ import type {
   KeyboardEvent,
   ReactNode,
   SelectHTMLAttributes,
+  TextareaHTMLAttributes,
 } from "react";
 
 const FIELD_CLASS =
@@ -77,6 +78,28 @@ export function AdminInlineSelect({
       className={className ? `${FIELD_CLASS} ${className}` : FIELD_CLASS}
       onKeyDown={(event) => {
         handleInlineKeys(event, onSave, onCancel);
+        onKeyDown?.(event);
+      }}
+    />
+  );
+}
+
+export function AdminInlineTextarea({
+  onSave: _onSave,
+  onCancel,
+  onKeyDown,
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & InlineKeys) {
+  return (
+    <textarea
+      {...props}
+      className={className ? `${FIELD_CLASS} ${className}` : FIELD_CLASS}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && onCancel) {
+          event.preventDefault();
+          onCancel();
+        }
         onKeyDown?.(event);
       }}
     />

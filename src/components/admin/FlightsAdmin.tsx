@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   dateSortKey,
   nextSortState,
@@ -12,9 +12,11 @@ import {
   AdminInlineField,
   AdminInlineInput,
 } from "@/components/admin/AdminInlineField";
+import { AdminMediaField, type AdminMediaFieldHandle } from "@/components/admin/AdminMediaField";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { filterRowsByQuery } from "@/lib/admin/search";
+import { mediaCountLabel } from "@/lib/map/trip-media";
 import {
   flightWriteSchema,
   type FlightRecord,
@@ -32,6 +34,7 @@ const EMPTY_FORM: FlightWriteInput = {
   connecting_coordinates: "",
   arrival_coordinates: "",
   tags: "",
+  media: "",
 };
 
 function toFormValues(flight: FlightRecord): FlightWriteInput {
@@ -44,6 +47,7 @@ function toFormValues(flight: FlightRecord): FlightWriteInput {
     connecting_coordinates: flight.connecting_coordinates ?? "",
     arrival_coordinates: flight.arrival_coordinates ?? "",
     tags: flight.tags ?? "",
+    media: flight.media ?? "",
   };
 }
 
@@ -58,6 +62,7 @@ function flightSearchHaystack(flight: FlightRecord): string {
     flight.arrival,
     flight.date,
     flight.tags,
+    flight.media,
   ].join(" ");
 }
 
@@ -71,6 +76,8 @@ export function FlightsAdmin() {
   const [saving, setSaving] = useState(false);
   const [sort, setSort] = useState<SortState<FlightSortKey> | null>(null);
   const [search, setSearch] = useState("");
+  const addMediaRef = useRef<AdminMediaFieldHandle | null>(null);
+  const rowMediaRef = useRef<AdminMediaFieldHandle | null>(null);
 
   const filteredFlights = filterRowsByQuery(
     flights,
@@ -133,6 +140,7 @@ export function FlightsAdmin() {
   }
 
   function cancelEdit() {
+    rowMediaRef.current?.clearPending();
     setEditingId(null);
     setRowDraft(null);
   }
@@ -143,6 +151,7 @@ export function FlightsAdmin() {
   }
 
   function resetForm() {
+    addMediaRef.current?.clearPending();
     setForm(EMPTY_FORM);
   }
 
@@ -155,10 +164,13 @@ export function FlightsAdmin() {
 
     setSaving(true);
     try {
+      const mediaHandle = id ? rowMediaRef.current : addMediaRef.current;
+      const media =
+        (await mediaHandle?.flushUploads(payload.date)) ?? parsed.data.media;
       const response = await fetch(id ? `/api/flights/${id}` : "/api/flights", {
         method: id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify({ ...parsed.data, media }),
       });
       const body = (await response.json()) as {
         ok: boolean;
@@ -333,6 +345,18 @@ export function FlightsAdmin() {
           />
         </label>
 
+        <div className="flex flex-col gap-1 text-sm text-muted sm:col-span-2">
+          Photos or videos (optional)
+          <AdminMediaField
+            ref={addMediaRef}
+            value={form.media}
+            onChange={(media) => updateField("media", media)}
+            tripDate={form.date}
+            disabled={saving}
+            testId="flight-media"
+          />
+        </div>
+
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <button
             type="submit"
@@ -404,13 +428,14 @@ export function FlightsAdmin() {
                     onSort={(key) => setSort((current) => nextSortState(current, key))}
                   />
                   <th className="px-3 py-2 font-medium">Coordinates</th>
-                  <SortableHeader
+                    <SortableHeader
                     label="Tags"
                     columnKey="tags"
                     activeKey={sort?.key ?? null}
                     direction={sort?.direction ?? null}
                     onSort={(key) => setSort((current) => nextSortState(current, key))}
                   />
+                  <th className="px-3 py-2 font-medium">Media</th>
                   <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -439,6 +464,9 @@ export function FlightsAdmin() {
                         </td>
                         <td className="px-3 py-2 align-top">
                           {flight.tags || "—"}
+                        </td>
+                        <td className="px-3 py-2 align-top text-muted">
+                          {mediaCountLabel(flight.media)}
                         </td>
                         <td className="px-3 py-2 align-top whitespace-nowrap">
                           <button
@@ -569,6 +597,17 @@ export function FlightsAdmin() {
                           onSave={() => void saveRow()}
                           onCancel={cancelEdit}
                           data-testid="flight-inline-tags"
+                        />
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <AdminMediaField
+                          ref={rowMediaRef}
+                          compact
+                          value={editing.media}
+                          onChange={(media) => updateRow("media", media)}
+                          tripDate={editing.date}
+                          disabled={saving}
+                          testId="flight-inline-media"
                         />
                       </td>
                       <td className="px-3 py-2 align-top whitespace-nowrap">

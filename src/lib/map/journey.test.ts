@@ -16,6 +16,8 @@ import {
   vehicleFollowTransform,
   FOLLOW_PITCH_DEG,
   hasRouteTag,
+  collectRouteTags,
+  filterRoutesByTag,
 } from "@/lib/map/journey";
 
 describe("journeyDurationMs", () => {
@@ -35,7 +37,9 @@ describe("journeyDurationMs", () => {
     const normal = journeyDurationMs(1000, 1);
     expect(journeyDurationMs(1000, 2)).toBe(Math.round(normal / 2));
     expect(journeyDurationMs(1000, 0.5)).toBe(Math.round(normal / 0.5));
+    expect(playbackSpeedMultiplier("slowest")).toBe(0.25);
     expect(playbackSpeedMultiplier("fast")).toBe(2);
+    expect(playbackSpeedMultiplier("fastest")).toBe(4);
   });
 });
 
@@ -112,6 +116,35 @@ describe("hasRouteTag", () => {
     expect(hasRouteTag("long distance", "Long distance")).toBe(true);
     expect(hasRouteTag("Work, Family", "Long distance")).toBe(false);
     expect(hasRouteTag("", "Long distance")).toBe(false);
+  });
+});
+
+describe("collectRouteTags", () => {
+  it("returns unique tags in display order", () => {
+    expect(
+      collectRouteTags([
+        { tags: "Work, Family" },
+        { tags: "work" },
+        { tags: "Long distance" },
+        { tags: "" },
+      ]),
+    ).toEqual(["Family", "Long distance", "Work"]);
+  });
+});
+
+describe("filterRoutesByTag", () => {
+  it("keeps every route when no tag is selected", () => {
+    const routes = [{ tags: "Work" }, { tags: "Family" }];
+    expect(filterRoutesByTag(routes, "")).toEqual(routes);
+  });
+
+  it("keeps only routes with the selected tag", () => {
+    expect(
+      filterRoutesByTag(
+        [{ id: "a", tags: "Work, Family" }, { id: "b", tags: "Family" }],
+        "Work",
+      ),
+    ).toEqual([{ id: "a", tags: "Work, Family" }]);
   });
 });
 

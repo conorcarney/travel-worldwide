@@ -48,6 +48,9 @@ import {
 import { summarizeNewCountriesByYear } from "@/lib/map/visited-stats";
 import {
   PLAYBACK_SPEEDS,
+  collectRouteTags,
+  filterRoutesByTag,
+  parseRouteTags,
   playbackSpeedMultiplier,
   type FollowCameraState,
   type PlaybackSpeedId,
@@ -62,6 +65,7 @@ import {
   MapControls,
   type LayerVisibility,
 } from "@/components/map/MapControls";
+import { JourneyMediaOverlay } from "@/components/map/JourneyMediaOverlay";
 import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
 import { TravelStats } from "@/components/map/TravelStats";
 import { VisitedCountriesLayer } from "@/components/map/VisitedCountriesLayer";
@@ -137,7 +141,7 @@ function journeyTitle(route: MapRoute): string {
 }
 
 const PLAYBACK_BAR_BUTTON =
-  "inline-flex items-center gap-1.5 rounded-md border border-[#b5c5ca] bg-transparent px-2.5 py-0.5 text-background transition-colors hover:border-accent hover:text-accent";
+  "inline-flex items-center gap-1.5 rounded-md border border-border bg-transparent px-2.5 py-0.5 text-foreground transition-colors hover:border-accent hover:text-accent";
 
 const PLAYBACK_BAR_BUTTON_ON =
   "inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-0.5 text-white";
@@ -198,6 +202,7 @@ export default function TravelMap() {
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("normal");
   const [showAll, setShowAll] = useState(false);
+  const [tagFilter, setTagFilter] = useState("");
   const layersRef = useRef(layers);
   const pausedRef = useRef(false);
   const speedRef = useRef(1);
@@ -301,9 +306,16 @@ export default function TravelMap() {
     };
   }, []);
 
+  const availableTags = useMemo(() => collectRouteTags(routes), [routes]);
+
+  const taggedRoutes = useMemo(
+    () => filterRoutesByTag(routes, tagFilter),
+    [routes, tagFilter],
+  );
+
   const yearFilteredRoutes = useMemo(
-    () => filterByMonthRange(routes, rangeStart, rangeEnd),
-    [routes, rangeStart, rangeEnd],
+    () => filterByMonthRange(taggedRoutes, rangeStart, rangeEnd),
+    [taggedRoutes, rangeStart, rangeEnd],
   );
   const yearFilteredBookmarks = useMemo(
     () => filterByMonthRange(bookmarks, rangeStart, rangeEnd),
@@ -311,24 +323,27 @@ export default function TravelMap() {
   );
 
   const timelineMonths = useMemo(() => {
-    const dates = [
-      ...yearFilteredRoutes.map((route) => route.date),
-      ...yearFilteredBookmarks.map((bookmark) => bookmark.date),
-      ...visited.flatMap((item) =>
-        allVisitDates(item).filter((date) =>
-          inMonthRange(date, rangeStart, rangeEnd),
-        ),
-      ),
-      ...blogs
-        .filter(
-          (item) =>
-            item.date_of_first_visit &&
-            inMonthRange(item.date_of_first_visit, rangeStart, rangeEnd),
-        )
-        .map((item) => item.date_of_first_visit as string),
-    ];
+    const dates = tagFilter
+      ? yearFilteredRoutes.map((route) => route.date)
+      : [
+          ...yearFilteredRoutes.map((route) => route.date),
+          ...yearFilteredBookmarks.map((bookmark) => bookmark.date),
+          ...visited.flatMap((item) =>
+            allVisitDates(item).filter((date) =>
+              inMonthRange(date, rangeStart, rangeEnd),
+            ),
+          ),
+          ...blogs
+            .filter(
+              (item) =>
+                item.date_of_first_visit &&
+                inMonthRange(item.date_of_first_visit, rangeStart, rangeEnd),
+            )
+            .map((item) => item.date_of_first_visit as string),
+        ];
     return collectEventMonths(dates);
   }, [
+    tagFilter,
     yearFilteredRoutes,
     yearFilteredBookmarks,
     visited,
@@ -394,7 +409,9 @@ export default function TravelMap() {
     };
 
     async function play() {
-      await sleep(PLAYBACK_START_DELAY_MS / Math.max(speedRef.current, 0.25));
+      if (!tagFilter) {
+        await sleep(PLAYBACK_START_DELAY_MS / Math.max(speedRef.current, 0.25));
+      }
       if (cancelled) return;
 
       for (const step of playbackSteps) {
@@ -407,7 +424,9 @@ export default function TravelMap() {
         if (step.kind === "month") {
           setActiveJourney(null);
           setPlaybackMonth(step.month);
-          await sleep(MONTH_HOLD_MS / Math.max(speedRef.current, 0.25));
+          if (!tagFilter) {
+            await sleep(MONTH_HOLD_MS / Math.max(speedRef.current, 0.25));
+          }
           continue;
         }
 
@@ -450,6 +469,7 @@ export default function TravelMap() {
     playbackSteps,
     routeById,
     timelineMonths.length,
+    tagFilter,
   ]);
 
   const playbackCursor = playbackMonth;
@@ -559,6 +579,13 @@ export default function TravelMap() {
     });
   }
 
+  function updateTagFilter(value: string) {
+    startTransition(() => {
+      setTagFilter(value);
+      if (!showAll) restartPlayback();
+    });
+  }
+
   function enableShowAll() {
     userFollowZoomRef.current = null;
     followCameraRef.current = null;
@@ -610,91 +637,15 @@ export default function TravelMap() {
             activeJourney ? ` · ${journeyTitle(activeJourney)}` : ""
           }`
         : "Playing · starting…";
+  const activeTags = activeJourney ? parseRouteTags(activeJourney.tags) : [];
 
   return (
     <div className="relative flex flex-1 flex-col" data-testid="travel-map">
-      <div className="flex flex-wrap items-center gap-3 border-b border-[#b5c5ca] bg-[#d4e0e4] px-4 py-3 text-sm text-background sm:px-6">
-        {status === "loading" ? (
-          <span
-            className="inline-flex items-center gap-2"
-            data-testid="map-status"
-          >
-            <span
-              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#b5c5ca] border-t-accent"
-              aria-hidden
-            />
-            Loading map data…
-          </span>
-        ) : null}
-        {status === "error" ? (
+      {status === "error" ? (
+        <div className="border-b border-[#b5c5ca] bg-[#d4e0e4] px-4 py-3 text-sm text-background sm:px-6">
           <span data-testid="map-status">Error: {error}</span>
-        ) : null}
-        {status === "ready" ? (
-          <span
-            className="inline-flex flex-wrap items-center gap-2"
-            data-testid="map-playback"
-          >
-            <span>{playbackLabel}</span>
-            {!showAll && !playbackFinished ? (
-              <button
-                type="button"
-                className={
-                  playbackPaused ? PLAYBACK_BAR_BUTTON : PLAYBACK_BAR_BUTTON_ON
-                }
-                onClick={togglePlaybackPaused}
-                data-testid="playback-pause"
-                aria-pressed={playbackPaused}
-              >
-                {playbackPaused ? <PlayIcon /> : <PauseIcon />}
-                {playbackPaused ? "Play" : "Pause"}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={
-                showAll ? PLAYBACK_BAR_BUTTON_ON : PLAYBACK_BAR_BUTTON
-              }
-              onClick={toggleShowAll}
-              data-testid="playback-show-all"
-              aria-pressed={showAll}
-            >
-              Show all
-            </button>
-            {showAll || playbackFinished ? (
-              <button
-                type="button"
-                className={PLAYBACK_BAR_BUTTON}
-                onClick={restartPlayback}
-                data-testid="playback-replay"
-              >
-                <PlayIcon />
-                Replay
-              </button>
-            ) : null}
-            <span
-              className="inline-flex items-center gap-1"
-              data-testid="playback-speed"
-            >
-              {PLAYBACK_SPEEDS.map((speed) => (
-                <button
-                  key={speed.id}
-                  type="button"
-                  className={
-                    playbackSpeed === speed.id
-                      ? PLAYBACK_BAR_BUTTON_ON
-                      : PLAYBACK_BAR_BUTTON
-                  }
-                  onClick={() => setPlaybackSpeed(speed.id)}
-                  aria-pressed={playbackSpeed === speed.id}
-                  data-testid={`playback-speed-${speed.id}`}
-                >
-                  {speed.label}
-                </button>
-              ))}
-            </span>
-          </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {status === "ready" ? (
         <MapControls
@@ -707,6 +658,9 @@ export default function TravelMap() {
           onRangeStartChange={updateRangeStart}
           onRangeEndChange={updateRangeEnd}
           onRangeApply={applyFilterRange}
+          tagFilter={tagFilter}
+          tagOptions={availableTags}
+          onTagFilterChange={updateTagFilter}
           visibleCounts={{
             visited: layers.visited ? visitedNames.size : 0,
             routes: visibleRoutes.length,
@@ -719,15 +673,97 @@ export default function TravelMap() {
       <div className="relative min-h-[60vh] flex-1" data-testid="leaflet-root">
         {status === "loading" ? <MapLoadingSpinner overlay /> : null}
         {activeJourney ? (
-          <p
-            className="pointer-events-none absolute bottom-4 left-1/2 z-[1100] max-w-[min(92%,42rem)] -translate-x-1/2 truncate rounded-full border border-border bg-surface/90 px-4 py-2 text-center text-lg text-foreground shadow sm:text-xl"
-            data-testid="journey-caption"
-            aria-live="polite"
-          >
-            <span className="capitalize">{activeJourney.mode}</span>
-            {": "}
-            {journeyTitle(activeJourney)}
-          </p>
+          <JourneyMediaOverlay
+            media={activeJourney.media}
+            title={journeyTitle(activeJourney)}
+          />
+        ) : null}
+        {status === "ready" ? (
+          <div className="pointer-events-auto absolute bottom-4 left-1/2 z-[1100] flex w-[min(96%,52rem)] -translate-x-1/2 flex-col items-center gap-2">
+            <div
+              className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-surface/90 px-3 py-2 text-sm text-foreground shadow"
+              data-testid="map-playback"
+            >
+              <span className="sr-only" aria-live="polite">
+                {playbackLabel}
+              </span>
+              {!showAll && !playbackFinished ? (
+                <button
+                  type="button"
+                  className={
+                    playbackPaused ? PLAYBACK_BAR_BUTTON : PLAYBACK_BAR_BUTTON_ON
+                  }
+                  onClick={togglePlaybackPaused}
+                  data-testid="playback-pause"
+                  aria-pressed={playbackPaused}
+                >
+                  {playbackPaused ? <PlayIcon /> : <PauseIcon />}
+                  {playbackPaused ? "Play" : "Pause"}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={
+                  showAll ? PLAYBACK_BAR_BUTTON_ON : PLAYBACK_BAR_BUTTON
+                }
+                onClick={toggleShowAll}
+                data-testid="playback-show-all"
+                aria-pressed={showAll}
+              >
+                Show all
+              </button>
+              {showAll || playbackFinished ? (
+                <button
+                  type="button"
+                  className={PLAYBACK_BAR_BUTTON}
+                  onClick={restartPlayback}
+                  data-testid="playback-replay"
+                >
+                  <PlayIcon />
+                  Replay
+                </button>
+              ) : null}
+              <span
+                className="inline-flex flex-wrap items-center gap-1"
+                data-testid="playback-speed"
+              >
+                {PLAYBACK_SPEEDS.map((speed) => (
+                  <button
+                    key={speed.id}
+                    type="button"
+                    className={
+                      playbackSpeed === speed.id
+                        ? PLAYBACK_BAR_BUTTON_ON
+                        : PLAYBACK_BAR_BUTTON
+                    }
+                    onClick={() => setPlaybackSpeed(speed.id)}
+                    aria-pressed={playbackSpeed === speed.id}
+                    data-testid={`playback-speed-${speed.id}`}
+                  >
+                    {speed.label}
+                  </button>
+                ))}
+              </span>
+            </div>
+            {activeJourney ? (
+              <p
+                className="w-full rounded-xl border border-border bg-surface/90 px-4 py-2 text-center text-foreground shadow"
+                data-testid="journey-caption"
+                aria-live="polite"
+              >
+                <span className="block text-base sm:text-lg">
+                  <span className="capitalize">{activeJourney.mode}</span>
+                  {": "}
+                  {journeyTitle(activeJourney)}
+                </span>
+                {activeTags.length > 0 ? (
+                  <span className="mt-1 block text-sm text-muted">
+                    {activeTags.join(" · ")}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
         ) : null}
         <MapContainer
           center={[53.3498, -6.2603]}

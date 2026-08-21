@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   dateSortKey,
   nextSortState,
@@ -13,11 +13,13 @@ import {
   AdminInlineInput,
   AdminInlineSelect,
 } from "@/components/admin/AdminInlineField";
+import { AdminMediaField, type AdminMediaFieldHandle } from "@/components/admin/AdminMediaField";
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { paginateRows } from "@/lib/admin/pagination";
 import { filterRowsByQuery } from "@/lib/admin/search";
+import { mediaCountLabel } from "@/lib/map/trip-media";
 import {
   SURFACE_ROUTE_TYPES,
   surfaceRouteWriteSchema,
@@ -38,6 +40,7 @@ type SurfaceRouteFormState = {
   type: SurfaceRouteWriteInput["type"];
   date: string;
   tags: string;
+  media: string;
 };
 
 const EMPTY_FORM_STATE: SurfaceRouteFormState = {
@@ -50,6 +53,7 @@ const EMPTY_FORM_STATE: SurfaceRouteFormState = {
   type: "Train",
   date: "",
   tags: "",
+  media: "",
 };
 
 function toFormState(route: SurfaceRouteRecord): SurfaceRouteFormState {
@@ -63,6 +67,7 @@ function toFormState(route: SurfaceRouteRecord): SurfaceRouteFormState {
     type: route.type,
     date: route.date ?? "",
     tags: route.tags ?? "",
+    media: route.media ?? "",
   };
 }
 
@@ -77,6 +82,7 @@ function formStateToPayload(form: SurfaceRouteFormState) {
     type: form.type,
     date: form.date,
     tags: form.tags,
+    media: form.media,
   };
 }
 
@@ -91,6 +97,7 @@ function landRouteSearchHaystack(route: SurfaceRouteRecord): string {
     route.arrival,
     route.date,
     route.tags,
+    route.media,
   ].join(" ");
 }
 
@@ -105,6 +112,8 @@ export function LandRoutesAdmin() {
   const [sort, setSort] = useState<SortState<LandRouteSortKey> | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const addMediaRef = useRef<AdminMediaFieldHandle | null>(null);
+  const rowMediaRef = useRef<AdminMediaFieldHandle | null>(null);
 
   const filteredRoutes = filterRowsByQuery(
     routes,
@@ -169,6 +178,7 @@ export function LandRoutesAdmin() {
   }
 
   function cancelEdit() {
+    rowMediaRef.current?.clearPending();
     setEditingId(null);
     setRowDraft(null);
   }
@@ -191,6 +201,7 @@ export function LandRoutesAdmin() {
   }
 
   function resetForm() {
+    addMediaRef.current?.clearPending();
     setForm(EMPTY_FORM_STATE);
   }
 
@@ -203,6 +214,9 @@ export function LandRoutesAdmin() {
 
     setSaving(true);
     try {
+      const mediaHandle = id ? rowMediaRef.current : addMediaRef.current;
+      const media =
+        (await mediaHandle?.flushUploads(payload.date)) ?? parsed.data.media;
       const response = await fetch(
         id
           ? `/api/buses-trains-ferries/${id}`
@@ -210,7 +224,7 @@ export function LandRoutesAdmin() {
         {
           method: id ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed.data),
+          body: JSON.stringify({ ...parsed.data, media }),
         },
       );
       const body = (await response.json()) as {
@@ -416,6 +430,18 @@ export function LandRoutesAdmin() {
           />
         </label>
 
+        <div className="flex flex-col gap-1 text-sm text-muted sm:col-span-2">
+          Photos or videos (optional)
+          <AdminMediaField
+            ref={addMediaRef}
+            value={form.media}
+            onChange={(media) => updateField("media", media)}
+            tripDate={form.date}
+            disabled={saving}
+            testId="land-route-media"
+          />
+        </div>
+
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <button
             type="submit"
@@ -497,13 +523,14 @@ export function LandRoutesAdmin() {
                     onSort={changeSort}
                   />
                   <th className="px-3 py-2 font-medium">Coordinates</th>
-                  <SortableHeader
+                    <SortableHeader
                     label="Tags"
                     columnKey="tags"
                     activeKey={sort?.key ?? null}
                     direction={sort?.direction ?? null}
                     onSort={changeSort}
                   />
+                  <th className="px-3 py-2 font-medium">Media</th>
                   <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -532,6 +559,9 @@ export function LandRoutesAdmin() {
                         </td>
                         <td className="px-3 py-2 align-top">
                           {route.tags || "—"}
+                        </td>
+                        <td className="px-3 py-2 align-top text-muted">
+                          {mediaCountLabel(route.media)}
                         </td>
                         <td className="px-3 py-2 align-top whitespace-nowrap">
                           <button
@@ -678,6 +708,17 @@ export function LandRoutesAdmin() {
                           onSave={() => void saveRow()}
                           onCancel={cancelEdit}
                           data-testid="land-route-inline-tags"
+                        />
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <AdminMediaField
+                          ref={rowMediaRef}
+                          compact
+                          value={editing.media}
+                          onChange={(media) => updateRow("media", media)}
+                          tripDate={editing.date}
+                          disabled={saving}
+                          testId="land-route-inline-media"
                         />
                       </td>
                       <td className="px-3 py-2 align-top whitespace-nowrap">

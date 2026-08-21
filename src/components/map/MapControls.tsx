@@ -41,6 +41,9 @@ type MapControlsProps = {
   onRangeStartChange: (value: YearMonth) => void;
   onRangeEndChange: (value: YearMonth) => void;
   onRangeApply: (start: YearMonth, end: YearMonth) => void;
+  tagFilter: string;
+  tagOptions: string[];
+  onTagFilterChange: (value: string) => void;
   visibleCounts: {
     visited: number;
     routes: number;
@@ -59,6 +62,9 @@ export function MapControls({
   onRangeStartChange,
   onRangeEndChange,
   onRangeApply,
+  tagFilter,
+  tagOptions,
+  onTagFilterChange,
   visibleCounts,
 }: MapControlsProps) {
   const modeKeys = Object.keys(MODE_LABELS) as TravelMode[];
@@ -159,6 +165,23 @@ export function MapControls({
             aria-hidden
           />
           Bookmarks
+        </label>
+
+        <label className="inline-flex items-center gap-2 text-foreground">
+          Tag
+          <select
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            value={tagFilter}
+            onChange={(event) => onTagFilterChange(event.target.value)}
+            data-testid="tag-filter"
+          >
+            <option value="">All tags</option>
+            {tagOptions.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

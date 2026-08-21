@@ -57,6 +57,7 @@ export function toSurfaceRouteDocument(input: SurfaceRouteWriteInput) {
     type: input.type,
     date: input.date,
     tags: input.tags ?? "",
+    media: input.media ?? "",
   };
 }
 
