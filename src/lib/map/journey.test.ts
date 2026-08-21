@@ -17,7 +17,7 @@ import {
   FOLLOW_PITCH_DEG,
   hasRouteTag,
   collectRouteTags,
-  filterRoutesByTag,
+  filterRoutesByTags,
 } from "@/lib/map/journey";
 
 describe("journeyDurationMs", () => {
@@ -132,19 +132,21 @@ describe("collectRouteTags", () => {
   });
 });
 
-describe("filterRoutesByTag", () => {
-  it("keeps every route when no tag is selected", () => {
-    const routes = [{ tags: "Work" }, { tags: "Family" }];
-    expect(filterRoutesByTag(routes, "")).toEqual(routes);
-  });
-
-  it("keeps only routes with the selected tag", () => {
+describe("filterRoutesByTags", () => {
+  it("keeps routes that match any selected tag", () => {
     expect(
-      filterRoutesByTag(
-        [{ id: "a", tags: "Work, Family" }, { id: "b", tags: "Family" }],
-        "Work",
+      filterRoutesByTags(
+        [
+          { id: "a", tags: "Work" },
+          { id: "b", tags: "Family" },
+          { id: "c", tags: "Other" },
+        ],
+        ["Work", "Family"],
       ),
-    ).toEqual([{ id: "a", tags: "Work, Family" }]);
+    ).toEqual([
+      { id: "a", tags: "Work" },
+      { id: "b", tags: "Family" },
+    ]);
   });
 });
 

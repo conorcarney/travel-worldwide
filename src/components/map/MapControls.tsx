@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { TravelMode } from "@/lib/validations/map-data";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
+import type { LayerVisibility } from "@/lib/map/filter-url";
+import { TagFilterBar } from "@/components/map/TagFilterBar";
 import {
   formatYearMonth,
   yearMonthKey,
@@ -15,10 +17,7 @@ import {
   parseFilterMonthInput,
 } from "@/lib/map/years";
 
-export type LayerVisibility = {
-  visited: boolean;
-  bookmarks: boolean;
-} & Record<TravelMode, boolean>;
+export type { LayerVisibility };
 
 const MODE_LABELS: Record<TravelMode, string> = {
   flight: "Flights",
@@ -41,9 +40,9 @@ type MapControlsProps = {
   onRangeStartChange: (value: YearMonth) => void;
   onRangeEndChange: (value: YearMonth) => void;
   onRangeApply: (start: YearMonth, end: YearMonth) => void;
-  tagFilter: string;
+  tagFilters: string[];
   tagOptions: string[];
-  onTagFilterChange: (value: string) => void;
+  onTagFiltersChange: (tags: string[]) => void;
   visibleCounts: {
     visited: number;
     routes: number;
@@ -62,9 +61,9 @@ export function MapControls({
   onRangeStartChange,
   onRangeEndChange,
   onRangeApply,
-  tagFilter,
+  tagFilters,
   tagOptions,
-  onTagFilterChange,
+  onTagFiltersChange,
   visibleCounts,
 }: MapControlsProps) {
   const modeKeys = Object.keys(MODE_LABELS) as TravelMode[];
@@ -167,22 +166,14 @@ export function MapControls({
           Bookmarks
         </label>
 
-        <label className="inline-flex items-center gap-2 text-foreground">
-          Tag
-          <select
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-            value={tagFilter}
-            onChange={(event) => onTagFilterChange(event.target.value)}
-            data-testid="tag-filter"
-          >
-            <option value="">All tags</option>
-            {tagOptions.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="inline-flex min-w-0 flex-1 items-start gap-2 text-foreground">
+          <span className="pt-1.5">Tags</span>
+          <TagFilterBar
+            selected={tagFilters}
+            options={tagOptions}
+            onChange={onTagFiltersChange}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">

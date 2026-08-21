@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   CircleMarker,
   MapContainer,
@@ -49,7 +50,7 @@ import { summarizeNewCountriesByYear } from "@/lib/map/visited-stats";
 import {
   PLAYBACK_SPEEDS,
   collectRouteTags,
-  filterRoutesByTag,
+  filterRoutesByTags,
   parseRouteTags,
   playbackSpeedMultiplier,
   type FollowCameraState,
@@ -61,6 +62,11 @@ import type {
   MongoBlog,
   MongoVisited,
 } from "@/lib/validations/map-data";
+import {
+  buildMapFilterQuery,
+  clampFilterRange,
+  parseMapFilterSearch,
+} from "@/lib/map/filter-url";
 import {
   MapControls,
   type LayerVisibility,
@@ -76,19 +82,6 @@ import {
 } from "@/components/map/JourneyFollow";
 
 type MapStatus = "loading" | "ready" | "error";
-
-const DEFAULT_LAYERS: LayerVisibility = {
-  visited: true,
-  flight: true,
-  ferry: true,
-  bus: true,
-  train: true,
-  car: true,
-  bookmarks: false,
-};
-
-const MONTH_HOLD_MS = 550;
-const PLAYBACK_START_DELAY_MS = 350;
 
 function filterVisitedForPlayback(
   items: MongoVisited[],
@@ -141,7 +134,7 @@ function journeyTitle(route: MapRoute): string {
 }
 
 const PLAYBACK_BAR_BUTTON =
-  "inline-flex items-center gap-1.5 rounded-md border border-border bg-transparent px-2.5 py-0.5 text-foreground transition-colors hover:border-accent hover:text-accent";
+  "inline-flex items-center gap-1.5 rounded-md border border-border bg-transparent px-2.5 py-0.5 text-foreground transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground";
 
 const PLAYBACK_BAR_BUTTON_ON =
   "inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-0.5 text-white";
@@ -171,7 +164,33 @@ function PauseIcon() {
   );
 }
 
+function SkipBackIcon() {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className="h-[0.8em] w-[0.8em] shrink-0"
+      aria-hidden
+    >
+      <path fill="currentColor" d="M10.6 1.4 3.2 6l7.4 4.6V1.4ZM1.4 1.5h2.1v9H1.4z" />
+    </svg>
+  );
+}
+
+function SkipForwardIcon() {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className="h-[0.8em] w-[0.8em] shrink-0"
+      aria-hidden
+    >
+      <path fill="currentColor" d="M1.4 1.4 8.8 6 1.4 10.6V1.4ZM8.5 1.5h2.1v9H8.5z" />
+    </svg>
+  );
+}
+
 export default function TravelMap() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<MapStatus>("loading");
   const [, setSource] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +202,9 @@ export default function TravelMap() {
     type: "FeatureCollection",
     features: [],
   });
-  const [layers, setLayers] = useState<LayerVisibility>(DEFAULT_LAYERS);
+  const [layers, setLayers] = useState<LayerVisibility>(
+    () => parseMapFilterSearch(searchParams).layers,
+  );
   const [rangeMin, setRangeMin] = useState<YearMonth>({ year: 2000, month: 1 });
   const [rangeMax, setRangeMax] = useState<YearMonth>({ year: 2027, month: 12 });
   const [rangeStart, setRangeStart] = useState<YearMonth>({
@@ -196,21 +217,19 @@ export default function TravelMap() {
   });
   const [playbackMonth, setPlaybackMonth] = useState<YearMonth | null>(null);
   const [playbackComplete, setPlaybackComplete] = useState(false);
-  const [playbackToken, setPlaybackToken] = useState(0);
+  const [tripIndex, setTripIndex] = useState(0);
+  const [playGeneration, setPlayGeneration] = useState(0);
   const [revealedRouteIds, setRevealedRouteIds] = useState<string[]>([]);
   const [activeJourney, setActiveJourney] = useState<MapRoute | null>(null);
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("normal");
   const [showAll, setShowAll] = useState(false);
-  const [tagFilter, setTagFilter] = useState("");
+  const [tagFilters, setTagFilters] = useState(
+    () => parseMapFilterSearch(searchParams).tags,
+  );
   const layersRef = useRef(layers);
-  const pausedRef = useRef(false);
-  const speedRef = useRef(1);
   const userFollowZoomRef = useRef<number | null>(null);
   const followCameraRef = useRef<FollowCameraState | null>(null);
-  const journeyWaiterRef = useRef<{ routeId: string; resolve: () => void } | null>(
-    null,
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -265,8 +284,17 @@ export default function TravelMap() {
         setBookmarks(mapBookmarks);
         setRangeMin(bounds.min);
         setRangeMax(bounds.max);
-        setRangeStart(bounds.min);
-        setRangeEnd(bounds.max);
+        const filter = parseMapFilterSearch(
+          new URLSearchParams(window.location.search),
+        );
+        const range = clampFilterRange(
+          filter.from,
+          filter.to,
+          bounds.min,
+          bounds.max,
+        );
+        setRangeStart(range.start);
+        setRangeEnd(range.end);
         setSource(flightsRes.source ?? visitedRes.source ?? "unknown");
         setStatus("ready");
         setPlaybackMonth(null);
@@ -275,7 +303,8 @@ export default function TravelMap() {
         setPlaybackPaused(false);
         setPlaybackComplete(false);
         setShowAll(false);
-        setPlaybackToken((token) => token + 1);
+        setTripIndex(0);
+        setPlayGeneration((value) => value + 1);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -306,11 +335,39 @@ export default function TravelMap() {
     };
   }, []);
 
+  useEffect(() => {
+    if (status !== "ready") return;
+    const query = buildMapFilterQuery({
+      from: rangeStart,
+      to: rangeEnd,
+      boundsMin: rangeMin,
+      boundsMax: rangeMax,
+      tags: tagFilters,
+      layers,
+    });
+    const current = window.location.search.replace(/^\?/, "");
+    if (current === query) return;
+    const href = query ? `${pathname}?${query}` : pathname;
+    const timer = window.setTimeout(() => {
+      window.history.replaceState(window.history.state, "", href);
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [
+    status,
+    rangeStart,
+    rangeEnd,
+    rangeMin,
+    rangeMax,
+    tagFilters,
+    layers,
+    pathname,
+  ]);
+
   const availableTags = useMemo(() => collectRouteTags(routes), [routes]);
 
   const taggedRoutes = useMemo(
-    () => filterRoutesByTag(routes, tagFilter),
-    [routes, tagFilter],
+    () => filterRoutesByTags(routes, tagFilters),
+    [routes, tagFilters],
   );
 
   const yearFilteredRoutes = useMemo(
@@ -323,7 +380,7 @@ export default function TravelMap() {
   );
 
   const timelineMonths = useMemo(() => {
-    const dates = tagFilter
+    const dates = tagFilters.length > 0
       ? yearFilteredRoutes.map((route) => route.date)
       : [
           ...yearFilteredRoutes.map((route) => route.date),
@@ -343,7 +400,7 @@ export default function TravelMap() {
         ];
     return collectEventMonths(dates);
   }, [
-    tagFilter,
+    tagFilters,
     yearFilteredRoutes,
     yearFilteredBookmarks,
     visited,
@@ -365,111 +422,65 @@ export default function TravelMap() {
     [timelineMonths, yearFilteredRoutes],
   );
 
+  const tripQueue = useMemo(
+    () =>
+      playbackSteps
+        .filter(
+          (step): step is { kind: "route"; routeId: string } =>
+            step.kind === "route",
+        )
+        .map((step) => step.routeId),
+    [playbackSteps],
+  );
+
   useEffect(() => {
     layersRef.current = layers;
   }, [layers]);
 
   useEffect(() => {
-    pausedRef.current = playbackPaused;
-  }, [playbackPaused]);
+    if (status !== "ready" || showAll || playbackComplete) return;
 
-  useEffect(() => {
-    speedRef.current = playbackSpeedMultiplier(playbackSpeed);
-  }, [playbackSpeed]);
-
-  useEffect(() => {
-    if (status !== "ready" || playbackComplete) return;
-    if (timelineMonths.length === 0) return;
-
-    let cancelled = false;
-    const pending: Array<() => void> = [];
-
-    const delay = (ms: number) =>
-      new Promise<void>((resolve) => {
-        const timer = window.setTimeout(resolve, ms);
-        pending.push(() => {
-          window.clearTimeout(timer);
-          resolve();
-        });
-      });
-
-    const sleep = async (ms: number) => {
-      let remaining = ms;
-      while (!cancelled && remaining > 0) {
-        if (pausedRef.current) {
-          await delay(50);
-          continue;
-        }
-        const slice = Math.min(50, remaining);
-        const startedAt = performance.now();
-        await delay(slice);
-        if (pausedRef.current || cancelled) continue;
-        remaining -= performance.now() - startedAt;
-      }
-    };
-
-    async function play() {
-      if (!tagFilter) {
-        await sleep(PLAYBACK_START_DELAY_MS / Math.max(speedRef.current, 0.25));
-      }
-      if (cancelled) return;
-
-      for (const step of playbackSteps) {
-        if (cancelled) return;
-        while (pausedRef.current && !cancelled) {
-          await delay(50);
-        }
-        if (cancelled) return;
-
-        if (step.kind === "month") {
-          setActiveJourney(null);
-          setPlaybackMonth(step.month);
-          if (!tagFilter) {
-            await sleep(MONTH_HOLD_MS / Math.max(speedRef.current, 0.25));
-          }
-          continue;
-        }
-
-        const route = routeById.get(step.routeId);
-        if (!route || !layersRef.current[route.mode]) {
-          if (route) {
-            setRevealedRouteIds((ids) =>
-              ids.includes(route.id) ? ids : [...ids, route.id],
-            );
-          }
-          continue;
-        }
-
-        await new Promise<void>((resolve) => {
-          journeyWaiterRef.current = { routeId: route.id, resolve };
-          setActiveJourney(route);
-        });
-      }
-
-      if (!cancelled) {
-        followCameraRef.current = null;
-        setActiveJourney(null);
-        setShowAll(true);
-        setPlaybackComplete(true);
-        setPlaybackPaused(false);
-      }
+    if (tripQueue.length === 0) {
+      setShowAll(true);
+      setPlaybackComplete(true);
+      setActiveJourney(null);
+      return;
     }
 
-    void play();
-    return () => {
-      cancelled = true;
-      pending.forEach((cancel) => cancel());
-      journeyWaiterRef.current?.resolve();
-      journeyWaiterRef.current = null;
-    };
+    if (tripIndex >= tripQueue.length) {
+      followCameraRef.current = null;
+      setActiveJourney(null);
+      setShowAll(true);
+      setPlaybackComplete(true);
+      setPlaybackPaused(false);
+      return;
+    }
+
+    let playable = tripIndex;
+    while (playable < tripQueue.length) {
+      const candidate = routeById.get(tripQueue[playable]!);
+      if (candidate && layersRef.current[candidate.mode]) break;
+      playable += 1;
+    }
+    setRevealedRouteIds(tripQueue.slice(0, Math.min(playable + 1, tripQueue.length)));
+    if (playable !== tripIndex) {
+      setTripIndex(playable);
+      return;
+    }
+
+    const route = routeById.get(tripQueue[tripIndex]);
+    if (!route) return;
+
+    setPlaybackMonth(parseYearMonth(route.date));
+    setActiveJourney(route);
   }, [
     status,
+    showAll,
     playbackComplete,
-    playbackToken,
-    playbackSteps,
+    tripIndex,
+    tripQueue,
     routeById,
-    timelineMonths.length,
-    tagFilter,
+    playGeneration,
   ]);
 
   const playbackCursor = playbackMonth;
@@ -550,7 +561,8 @@ export default function TravelMap() {
     setPlaybackMonth(null);
     setPlaybackPaused(false);
     setPlaybackComplete(false);
-    setPlaybackToken((token) => token + 1);
+    setTripIndex(0);
+    setPlayGeneration((value) => value + 1);
   }
 
   function applyFilterRange(start: YearMonth, end: YearMonth) {
@@ -579,9 +591,9 @@ export default function TravelMap() {
     });
   }
 
-  function updateTagFilter(value: string) {
+  function updateTagFilters(tags: string[]) {
     startTransition(() => {
-      setTagFilter(value);
+      setTagFilters(tags);
       if (!showAll) restartPlayback();
     });
   }
@@ -613,15 +625,30 @@ export default function TravelMap() {
     setPlaybackPaused((current) => !current);
   }
 
+  function skipBack() {
+    if (showAll || playbackComplete) {
+      setShowAll(false);
+      setPlaybackComplete(false);
+      setPlaybackPaused(false);
+      setTripIndex(Math.max(tripQueue.length - 1, 0));
+      setPlayGeneration((value) => value + 1);
+      return;
+    }
+    setTripIndex((current) => Math.max(current - 1, 0));
+    setPlayGeneration((value) => value + 1);
+  }
+
+  function skipForward() {
+    if (showAll || playbackComplete) return;
+    setTripIndex((current) => current + 1);
+  }
+
   function handleJourneyComplete(routeId: string) {
     setRevealedRouteIds((ids) =>
       ids.includes(routeId) ? ids : [...ids, routeId],
     );
-    if (journeyWaiterRef.current?.routeId === routeId) {
-      const { resolve } = journeyWaiterRef.current;
-      journeyWaiterRef.current = null;
-      resolve();
-    }
+    if (tripQueue[tripIndex] !== routeId) return;
+    setTripIndex((current) => current + 1);
   }
 
   const playbackLabel = showAll
@@ -658,9 +685,9 @@ export default function TravelMap() {
           onRangeStartChange={updateRangeStart}
           onRangeEndChange={updateRangeEnd}
           onRangeApply={applyFilterRange}
-          tagFilter={tagFilter}
+          tagFilters={tagFilters}
           tagOptions={availableTags}
-          onTagFilterChange={updateTagFilter}
+          onTagFiltersChange={updateTagFilters}
           visibleCounts={{
             visited: layers.visited ? visitedNames.size : 0,
             routes: visibleRoutes.length,
@@ -687,6 +714,18 @@ export default function TravelMap() {
               <span className="sr-only" aria-live="polite">
                 {playbackLabel}
               </span>
+              <button
+                type="button"
+                className={PLAYBACK_BAR_BUTTON}
+                onClick={skipBack}
+                disabled={
+                  !showAll && !playbackFinished && tripIndex === 0
+                }
+                data-testid="playback-skip-back"
+              >
+                <SkipBackIcon />
+                Back
+              </button>
               {!showAll && !playbackFinished ? (
                 <button
                   type="button"
@@ -701,6 +740,16 @@ export default function TravelMap() {
                   {playbackPaused ? "Play" : "Pause"}
                 </button>
               ) : null}
+              <button
+                type="button"
+                className={PLAYBACK_BAR_BUTTON}
+                onClick={skipForward}
+                disabled={showAll || playbackFinished}
+                data-testid="playback-skip-forward"
+              >
+                Next
+                <SkipForwardIcon />
+              </button>
               <button
                 type="button"
                 className={
@@ -815,7 +864,7 @@ export default function TravelMap() {
 
           {activeJourney ? (
             <JourneyFollow
-              key={activeJourney.id}
+              key={`${activeJourney.id}-${playGeneration}`}
               route={activeJourney}
               paused={playbackPaused}
               speed={playbackSpeedMultiplier(playbackSpeed)}

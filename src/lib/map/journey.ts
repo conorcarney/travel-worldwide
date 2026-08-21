@@ -60,8 +60,19 @@ export function filterRoutesByTag<T extends { tags?: string }>(
   routes: T[],
   tag: string,
 ): T[] {
-  if (!tag.trim()) return routes;
-  return routes.filter((route) => hasRouteTag(route.tags, tag));
+  return filterRoutesByTags(routes, tag ? [tag] : []);
+}
+
+/** Keep routes that have at least one of the selected tags. Empty means all. */
+export function filterRoutesByTags<T extends { tags?: string }>(
+  routes: T[],
+  selected: string[],
+): T[] {
+  const needles = selected.map((tag) => tag.trim()).filter(Boolean);
+  if (needles.length === 0) return routes;
+  return routes.filter((route) =>
+    needles.some((tag) => hasRouteTag(route.tags, tag)),
+  );
 }
 
 const MIN_DURATION_MS = 900;

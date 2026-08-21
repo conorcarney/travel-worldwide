@@ -7,6 +7,7 @@ import type {
   GeoJSON as LeafletGeoJSON,
   Layer,
   LeafletMouseEvent,
+  PathOptions,
 } from "leaflet";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import {
@@ -62,15 +63,18 @@ export function VisitedCountriesLayer({
   );
   const fillKey = `${[...visitedNames].join("|")}::${[...blogCountryNames].join("|")}`;
 
-  function style(feature?: Feature) {
+  function style(feature?: Feature): PathOptions {
     const names = namesRef.current;
-    return countryBaseStyle(
-      featureCountryStatus(
-        feature?.properties as Record<string, unknown> | undefined,
-        names.visitedNames,
-        names.blogCountryNames,
+    return {
+      ...countryBaseStyle(
+        featureCountryStatus(
+          feature?.properties as Record<string, unknown> | undefined,
+          names.visitedNames,
+          names.blogCountryNames,
+        ),
       ),
-    );
+      renderer,
+    };
   }
 
   useEffect(() => {
@@ -112,7 +116,6 @@ export function VisitedCountriesLayer({
         key={`countries-${countries.features.length}`}
         data={data}
         pane={COUNTRIES_PANE}
-        renderer={renderer}
         style={style}
         onEachFeature={onEachFeature}
       />
