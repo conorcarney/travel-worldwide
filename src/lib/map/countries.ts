@@ -65,6 +65,19 @@ export function blogCountryNameSet(
   );
 }
 
+export function blogsForCountryFeature<
+  T extends { name: string; url?: string; blog_title?: string },
+>(
+  properties: Record<string, unknown> | null | undefined,
+  blogs: T[],
+): T[] {
+  return blogs.filter(
+    (blog) =>
+      Boolean(blog.url?.trim()) &&
+      nameSetMatches(properties, new Set([normalizeName(blog.name)])),
+  );
+}
+
 export function featureIsVisited(
   properties: Record<string, unknown> | null | undefined,
   visited: Set<string>,

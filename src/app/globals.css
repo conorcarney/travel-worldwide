@@ -48,3 +48,20 @@ button:disabled,
 select:disabled {
   cursor: not-allowed;
 }
+
+.leaflet-popup.map-blog-popup .leaflet-popup-content {
+  margin: 12px 16px;
+  color: #0b1c24;
+}
+
+.leaflet-popup.map-blog-popup strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.leaflet-popup.map-blog-popup .map-blog-link {
+  display: block;
+  margin-top: 6px;
+  color: #1d6b45;
+  text-decoration: underline;
+}

@@ -495,6 +495,16 @@ export function LandRoutesAdmin() {
 
         {status === "ready" ? (
           <div className="overflow-x-auto border border-border">
+            <AdminPagination
+              edge="top"
+              testId="admin-pagination-top"
+              page={pagedRoutes.page}
+              totalPages={pagedRoutes.totalPages}
+              start={pagedRoutes.start}
+              end={pagedRoutes.end}
+              total={pagedRoutes.total}
+              onPageChange={goToPage}
+            />
             <table
               className="min-w-full text-left text-sm"
               data-testid="land-routes-table"
@@ -760,6 +770,8 @@ export function LandRoutesAdmin() {
               </p>
             ) : (
               <AdminPagination
+                edge="bottom"
+                testId="admin-pagination-bottom"
                 page={pagedRoutes.page}
                 totalPages={pagedRoutes.totalPages}
                 start={pagedRoutes.start}

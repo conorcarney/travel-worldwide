@@ -688,6 +688,9 @@ export default function TravelMap() {
           tagFilters={tagFilters}
           tagOptions={availableTags}
           onTagFiltersChange={updateTagFilters}
+          noTagResults={
+            tagFilters.length > 0 && yearFilteredRoutes.length === 0
+          }
           visibleCounts={{
             visited: layers.visited ? visitedNames.size : 0,
             routes: visibleRoutes.length,
@@ -835,6 +838,7 @@ export default function TravelMap() {
               countries={countries}
               visitedNames={visitedNames}
               blogCountryNames={blogCountryNames}
+              blogs={visibleBlogs}
             />
           ) : null}
 

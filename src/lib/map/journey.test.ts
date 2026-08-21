@@ -133,20 +133,17 @@ describe("collectRouteTags", () => {
 });
 
 describe("filterRoutesByTags", () => {
-  it("keeps routes that match any selected tag", () => {
+  it("keeps routes that have every selected tag", () => {
     expect(
       filterRoutesByTags(
         [
-          { id: "a", tags: "Work" },
+          { id: "a", tags: "Work, Family" },
           { id: "b", tags: "Family" },
-          { id: "c", tags: "Other" },
+          { id: "c", tags: "Work" },
         ],
         ["Work", "Family"],
       ),
-    ).toEqual([
-      { id: "a", tags: "Work" },
-      { id: "b", tags: "Family" },
-    ]);
+    ).toEqual([{ id: "a", tags: "Work, Family" }]);
   });
 });
 

@@ -43,6 +43,7 @@ type MapControlsProps = {
   tagFilters: string[];
   tagOptions: string[];
   onTagFiltersChange: (tags: string[]) => void;
+  noTagResults?: boolean;
   visibleCounts: {
     visited: number;
     routes: number;
@@ -64,6 +65,7 @@ export function MapControls({
   tagFilters,
   tagOptions,
   onTagFiltersChange,
+  noTagResults = false,
   visibleCounts,
 }: MapControlsProps) {
   const modeKeys = Object.keys(MODE_LABELS) as TravelMode[];
@@ -166,13 +168,22 @@ export function MapControls({
           Bookmarks
         </label>
 
-        <div className="inline-flex min-w-0 flex-1 items-start gap-2 text-foreground">
+        <div className="inline-flex min-w-0 flex-1 flex-wrap items-start gap-2 text-foreground">
           <span className="pt-1.5">Tags</span>
           <TagFilterBar
             selected={tagFilters}
             options={tagOptions}
             onChange={onTagFiltersChange}
           />
+          {noTagResults ? (
+            <p
+              className="pt-1.5 text-xs text-red-400"
+              data-testid="tag-filter-empty"
+              role="status"
+            >
+              No results found
+            </p>
+          ) : null}
         </div>
       </div>
 

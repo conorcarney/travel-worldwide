@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   blogCountryNameSet,
+  blogsForCountryFeature,
   countryBaseStyle,
   countryHoverStyle,
   featureCountryStatus,
@@ -40,6 +41,22 @@ describe("featureIsVisited", () => {
     ).toBe(true);
     expect(featureIsVisited({ admin: "Belize" }, visited)).toBe(true);
     expect(featureIsVisited({ name: "Spain" }, visited)).toBe(false);
+  });
+});
+
+describe("blogsForCountryFeature", () => {
+  const blogs = [
+    { name: "Ireland", url: "ireland", blog_title: "Notes from Dublin" },
+    { name: "Spain", url: "spain", blog_title: "Barcelona" },
+    { name: "Ireland", url: "", blog_title: "Draft" },
+  ];
+
+  it("returns published blogs that match the country feature", () => {
+    expect(blogsForCountryFeature({ name: "Ireland" }, blogs)).toEqual([
+      { name: "Ireland", url: "ireland", blog_title: "Notes from Dublin" },
+    ]);
+    expect(blogsForCountryFeature({ admin: "Spain" }, blogs)).toHaveLength(1);
+    expect(blogsForCountryFeature({ name: "France" }, blogs)).toEqual([]);
   });
 });
 

@@ -63,7 +63,7 @@ export function filterRoutesByTag<T extends { tags?: string }>(
   return filterRoutesByTags(routes, tag ? [tag] : []);
 }
 
-/** Keep routes that have at least one of the selected tags. Empty means all. */
+/** Keep routes that have every selected tag. Empty means all. */
 export function filterRoutesByTags<T extends { tags?: string }>(
   routes: T[],
   selected: string[],
@@ -71,7 +71,7 @@ export function filterRoutesByTags<T extends { tags?: string }>(
   const needles = selected.map((tag) => tag.trim()).filter(Boolean);
   if (needles.length === 0) return routes;
   return routes.filter((route) =>
-    needles.some((tag) => hasRouteTag(route.tags, tag)),
+    needles.every((tag) => hasRouteTag(route.tags, tag)),
   );
 }
 

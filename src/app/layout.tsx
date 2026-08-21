@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { Suspense } from "react";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -33,6 +35,9 @@ export default function RootLayout({
       className={`${fraunces.variable} ${sourceSans.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
         <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>
       </body>
