@@ -11,18 +11,41 @@ export default function HomePage() {
         <p className="font-display text-4xl tracking-tight text-foreground sm:text-6xl">
           AhBeGrand
         </p>
-        <h1 className="mt-4 max-w-xl text-lg text-muted sm:text-xl">
-          A personal map of where you&apos;ve been, how you got there, and the
-          places you saved along the way.
+        <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
+          I built this site initially as a fun side project, to keep track of places I've travelled, the number of flights, buses, and trains, and the total kilometers passed by.
+          Since then it's morphed into a map tracking, blog filled complex travel site, that covers a good array of just how much there is to see in the world. Click through to the map,
+          use the filters, and hopefully, it might be an interest to someone other than me!
+        </h1>
+        <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
+          On the tech side, it's built on nextjs, react, with a mongodb backend. Images and videos are stored in an S3 bucket. The first version was manually coded in 2022, and the initial data manually entered from then until 2026.
+          Version 2.0 (current) was built primarily using cursor as a junior web developer, and me as a senior dev/ project lead, that gave the agent a detailed breakdown of what I wanted,
+          my vision, rules to follow, and stylistic guides through a variety of agent.md files.
+        </h1>
+        <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
+          At the moment data is still manually entered.
+        </h1>
+        <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
+          Future plans is an AI that will automatically scrap my email for new flights/bus tickets/train tickets/countries and add that data automatically.
         </h1>
         <div className="mt-10">
-          <Link
-            href="/map"
-            className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-          >
-            Open map
-          </Link>
+          <div className="mb-5">
+            <Link
+              href="/map"
+              className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Open map
+            </Link>
+          </div>
+          <div>
+            <Link
+              href="/blogs"
+              className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Open blogs
+            </Link>
+          </div>
         </div>
+
       </div>
     </main>
   );

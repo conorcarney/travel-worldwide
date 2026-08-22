@@ -221,7 +221,7 @@ export default function TravelMap() {
   const [revealedRouteIds, setRevealedRouteIds] = useState<string[]>([]);
   const [activeJourney, setActiveJourney] = useState<MapRoute | null>(null);
   const [playbackPaused, setPlaybackPaused] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("normal");
+  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("slow");
   const [showAll, setShowAll] = useState(false);
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
@@ -382,21 +382,21 @@ export default function TravelMap() {
     const dates = tagFilters.length > 0
       ? yearFilteredRoutes.map((route) => route.date)
       : [
-          ...yearFilteredRoutes.map((route) => route.date),
-          ...yearFilteredBookmarks.map((bookmark) => bookmark.date),
-          ...visited.flatMap((item) =>
-            allVisitDates(item).filter((date) =>
-              inMonthRange(date, rangeStart, rangeEnd),
-            ),
+        ...yearFilteredRoutes.map((route) => route.date),
+        ...yearFilteredBookmarks.map((bookmark) => bookmark.date),
+        ...visited.flatMap((item) =>
+          allVisitDates(item).filter((date) =>
+            inMonthRange(date, rangeStart, rangeEnd),
           ),
-          ...blogs
-            .filter(
-              (item) =>
-                item.date_of_first_visit &&
-                inMonthRange(item.date_of_first_visit, rangeStart, rangeEnd),
-            )
-            .map((item) => item.date_of_first_visit as string),
-        ];
+        ),
+        ...blogs
+          .filter(
+            (item) =>
+              item.date_of_first_visit &&
+              inMonthRange(item.date_of_first_visit, rangeStart, rangeEnd),
+          )
+          .map((item) => item.date_of_first_visit as string),
+      ];
     return collectEventMonths(dates);
   }, [
     tagFilters,
@@ -506,9 +506,9 @@ export default function TravelMap() {
 
   const visibleBookmarks = layers.bookmarks
     ? filterByPlaybackMonth(yearFilteredBookmarks, cutoff, {
-        includeUndatedWhenComplete: true,
-        playbackComplete: playbackFinished,
-      })
+      includeUndatedWhenComplete: true,
+      playbackComplete: playbackFinished,
+    })
     : [];
 
   const visibleVisited = filterVisitedForPlayback(
@@ -531,9 +531,9 @@ export default function TravelMap() {
   const statsSummary = summarizeTravelStats(
     playbackFinished
       ? filterByPlaybackMonth(yearFilteredRoutes, cutoff, {
-          includeUndatedWhenComplete: true,
-          playbackComplete: true,
-        })
+        includeUndatedWhenComplete: true,
+        playbackComplete: true,
+      })
       : yearFilteredRoutes.filter((route) => revealedRouteIdSet.has(route.id)),
   );
   const countriesByYear = summarizeNewCountriesByYear(
@@ -655,14 +655,12 @@ export default function TravelMap() {
     : playbackFinished
       ? "Playback complete"
       : playbackPaused
-      ? `Paused${
-          playbackCursor ? ` · ${formatYearMonth(playbackCursor)}` : ""
+        ? `Paused${playbackCursor ? ` · ${formatYearMonth(playbackCursor)}` : ""
         }${activeJourney ? ` · ${journeyTitle(activeJourney)}` : ""}`
-      : playbackCursor
-        ? `Playing · ${formatYearMonth(playbackCursor)}${
-            activeJourney ? ` · ${journeyTitle(activeJourney)}` : ""
+        : playbackCursor
+          ? `Playing · ${formatYearMonth(playbackCursor)}${activeJourney ? ` · ${journeyTitle(activeJourney)}` : ""
           }`
-        : "Playing · starting…";
+          : "Playing · starting…";
   const activeTags = activeJourney ? parseRouteTags(activeJourney.tags) : [];
 
   return (
@@ -818,7 +816,7 @@ export default function TravelMap() {
         ) : null}
         <MapContainer
           center={[53.3498, -6.2603]}
-          zoom={8}
+          zoom={6}
           minZoom={1}
           maxBounds={[
             [180, Number.NEGATIVE_INFINITY],
