@@ -7,7 +7,6 @@ import {
   MapContainer,
   Popup,
   Polyline,
-  TileLayer,
   Tooltip,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -73,10 +72,10 @@ import {
 } from "@/components/map/MapControls";
 import { JourneyMediaOverlay } from "@/components/map/JourneyMediaOverlay";
 import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
+import { OpenFreeMapLayer } from "@/components/map/OpenFreeMapLayer";
 import { TravelStats } from "@/components/map/TravelStats";
 import { VisitedCountriesLayer } from "@/components/map/VisitedCountriesLayer";
 import {
-  CoverRotatedViewport,
   FitRoutesWhenComplete,
   JourneyFollow,
 } from "@/components/map/JourneyFollow";
@@ -820,18 +819,17 @@ export default function TravelMap() {
         <MapContainer
           center={[53.3498, -6.2603]}
           zoom={8}
+          minZoom={1}
+          maxBounds={[
+            [180, Number.NEGATIVE_INFINITY],
+            [-180, Number.POSITIVE_INFINITY],
+          ]}
+          maxBoundsViscosity={1}
           className="h-full min-h-[60vh] w-full"
           scrollWheelZoom
+          attributionControl
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            keepBuffer={1}
-            updateWhenIdle={true}
-            updateWhenZooming={false}
-            updateInterval={400}
-          />
-          <CoverRotatedViewport active={Boolean(activeJourney)} />
+          <OpenFreeMapLayer />
 
           {layers.visited && countries.features.length > 0 ? (
             <VisitedCountriesLayer

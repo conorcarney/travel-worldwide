@@ -141,7 +141,7 @@ export function vehicleFollowTransform(bearing: number, pitch = 0): string {
 }
 
 /**
- * Extra tile padding so a rotated map still has OSM tiles in the corners.
+ * Extra tile padding so a rotated map still has basemap tiles in the corners.
  * `pad(ratio)` grows each side by `ratio` of the viewport, so the loaded
  * square covers the viewport diagonal at any heading.
  */

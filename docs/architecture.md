@@ -2,7 +2,7 @@
 
 ## Overview
 
-**AhBeGrand** is a personal travel map built as a **Next.js** application (App Router) with TypeScript. The same Next.js app serves the React UI and the backend API. Existing travel data lives in **MongoDB**. The map is rendered with **Leaflet** via `react-leaflet` (open-source, no API key required for base tiles from OSM or similar free providers).
+**AhBeGrand** is a personal travel map built as a **Next.js** application (App Router) with TypeScript. The same Next.js app serves the React UI and the backend API. Existing travel data lives in **MongoDB**. The map is rendered with **Leaflet** and **react-leaflet**, using **OpenFreeMap** vector tiles via MapLibre GL.
 
 ```
 ┌──────────────────────────────────────────┐

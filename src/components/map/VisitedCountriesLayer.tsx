@@ -125,7 +125,10 @@ export function VisitedCountriesLayer({
 
     layer.on("add", () => {
       const element = pathLayer.getElement?.();
-      if (element && posts().length > 0) {
+      if (
+        posts().length > 0 &&
+        (element instanceof HTMLElement || element instanceof SVGElement)
+      ) {
         element.style.cursor = "pointer";
       }
     });

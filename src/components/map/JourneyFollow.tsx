@@ -117,7 +117,7 @@ export function JourneyFollow({
     let startTime = 0;
     let pauseStartedAt = 0;
     let pausedMs = 0;
-let lastMapPan = 0;
+    let lastMapPan = 0;
     const complete = () => {
       if (cancelled || finished) return;
       finished = true;
@@ -384,8 +384,8 @@ let lastMapPan = 0;
     const bridgeMs = previousCamera
       ? bridgeDurationMs(speedRef.current)
       : Math.round(
-          (FLY_SECONDS * 1000) / Math.max(speedRef.current, 0.25),
-        );
+        (FLY_SECONDS * 1000) / Math.max(speedRef.current, 0.25),
+      );
 
     const bridgeTick = (now: number) => {
       if (cancelled || started || !isMapUsable(map)) return;
@@ -582,7 +582,7 @@ type PaddedGridLayer = L.GridLayer & {
   _getTiledPixelBounds: (center: L.LatLng) => L.Bounds;
 };
 
-/** Fetch extra OSM tiles around the viewport so rotation does not show grey corners. */
+/** Extra basemap padding when the follow-cam is pitched (raster tiles only). */
 export function CoverRotatedViewport({ active = false }: { active?: boolean }) {
   const map = useMap();
   const activeRef = useRef(active);
@@ -596,10 +596,10 @@ export function CoverRotatedViewport({ active = false }: { active?: boolean }) {
       PaddedGridLayer["_getTiledPixelBounds"]
     >();
 
-    const padRatio = () => 0.5
-      // activeRef.current
-      //   ? rotationTilePadRatio(map.getSize(), FOLLOW_PITCH_DEG)
-      //   : 0;
+    const padRatio = () =>
+      activeRef.current
+        ? rotationTilePadRatio(map.getSize(), FOLLOW_PITCH_DEG)
+        : 0;
 
     const patch = (layer: L.Layer) => {
       if (!(layer instanceof L.GridLayer) || originals.has(layer)) return;
