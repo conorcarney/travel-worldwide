@@ -96,3 +96,53 @@ export function mediaCountLabel(value: string | undefined): string {
   if (count === 0) return "—";
   return count === 1 ? "1 file" : `${count} files`;
 }
+
+/** Default aspect for embeds / unknown media (width / height). */
+export const DEFAULT_MEDIA_ASPECT = 16 / 9;
+
+/** Overlay may cover at most this fraction of the map area. */
+export const MAX_MEDIA_MAP_AREA = 1 / 3;
+
+/**
+ * Largest box matching the media aspect ratio whose area stays within
+ * `maxAreaFraction` of the map, and within the map's usable margins.
+ */
+export function fitMediaBox(
+  mapWidth: number,
+  mapHeight: number,
+  mediaWidth: number,
+  mediaHeight: number,
+  maxAreaFraction = MAX_MEDIA_MAP_AREA,
+): { width: number; height: number } {
+  const mapW = Math.max(1, mapWidth);
+  const mapH = Math.max(1, mapHeight);
+  const aspect =
+    mediaWidth > 0 && mediaHeight > 0
+      ? mediaWidth / mediaHeight
+      : DEFAULT_MEDIA_ASPECT;
+
+  const maxArea = mapW * mapH * Math.min(1, Math.max(0, maxAreaFraction));
+  // Area = w * (w / aspect) => w = sqrt(area * aspect)
+  let width = Math.sqrt(maxArea * aspect);
+  let height = width / aspect;
+
+  const maxWidth = mapW * 0.94;
+  const maxHeight = mapH * 0.72;
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = width / aspect;
+  }
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspect;
+  }
+  if (width * height > maxArea) {
+    width = Math.sqrt(maxArea * aspect);
+    height = width / aspect;
+  }
+
+  return {
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height)),
+  };
+}

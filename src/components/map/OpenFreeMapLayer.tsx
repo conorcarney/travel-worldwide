@@ -19,8 +19,9 @@ export function OpenFreeMapLayer() {
     // CSS transforms, which leaves grey strips at the sides.
     const layer = maplibreGL({
       style: OPENFREEMAP_STYLE,
+      // Supported by the Leaflet binding; not present on MapLibre MapOptions typings.
       padding: 0.75,
-    });
+    } as Parameters<typeof maplibreGL>[0]);
     layer.addTo(map);
 
     return () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyTripMedia,
+  fitMediaBox,
   mediaCountLabel,
   parseMediaUrls,
   parseTripMedia,
@@ -49,5 +50,21 @@ describe("mediaCountLabel", () => {
     expect(
       mediaCountLabel("https://x.com/a.jpg\nhttps://x.com/b.mp4"),
     ).toBe("2 files");
+  });
+});
+
+describe("fitMediaBox", () => {
+  it("keeps the media aspect ratio and stays under 1/3 of the map area", () => {
+    const box = fitMediaBox(1200, 900, 1600, 900);
+    expect(box.width / box.height).toBeCloseTo(16 / 9, 2);
+    expect(box.width * box.height).toBeLessThanOrEqual(
+      (1200 * 900) / 3 + 1,
+    );
+  });
+
+  it("shrinks tall portraits so they fit the height margin", () => {
+    const box = fitMediaBox(1000, 800, 400, 1200);
+    expect(box.height).toBeLessThanOrEqual(Math.round(800 * 0.72));
+    expect(box.width / box.height).toBeCloseTo(400 / 1200, 2);
   });
 });

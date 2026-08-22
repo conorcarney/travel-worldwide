@@ -29,7 +29,11 @@ export const visitedWriteSchema = z.object({
     .transform((value) => normalizeOtherVisitDates(value)),
 });
 
-export type VisitedWriteInput = z.infer<typeof visitedWriteSchema>;
+export type VisitedWriteInput = {
+  name: string;
+  date?: string;
+  other_visit_dates?: string;
+};
 
 export type VisitedRecord = {
   _id: string;

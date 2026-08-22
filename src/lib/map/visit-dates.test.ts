@@ -13,7 +13,7 @@ describe("allVisitDates", () => {
   });
 
   it("returns an empty list when there are no dates", () => {
-    expect(allVisitDates({ name: "Ireland" })).toEqual([]);
+    expect(allVisitDates({})).toEqual([]);
   });
 });
 
@@ -77,7 +77,7 @@ describe("isVisitedInFilter", () => {
   it("shows undated countries only when playback is complete", () => {
     expect(
       isVisitedInFilter(
-        { name: "France" },
+        {},
         range2020.start,
         range2020.end,
         { year: 2020, month: 6 },
@@ -86,7 +86,7 @@ describe("isVisitedInFilter", () => {
     ).toBe(false);
     expect(
       isVisitedInFilter(
-        { name: "France" },
+        {},
         range2020.start,
         range2020.end,
         null,
