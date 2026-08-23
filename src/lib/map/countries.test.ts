@@ -4,9 +4,15 @@ import {
   blogsForCountryFeature,
   countryBaseStyle,
   countryHoverStyle,
+  createNameOnlyCountryFeature,
   featureCountryStatus,
   featureIsVisited,
+  featureMatchesCountryName,
+  hasRenderableGeometry,
+  listCountryNames,
+  mapRenderableCountries,
   normalizeCountryList,
+  removeCountryFeaturesByName,
   visitedNameSet,
 } from "@/lib/map/countries";
 
@@ -82,6 +88,45 @@ describe("featureCountryStatus", () => {
   it("marks other countries as none", () => {
     expect(featureCountryStatus({ name: "France" }, visited, blogs)).toBe(
       "none",
+    );
+  });
+});
+
+describe("country list helpers", () => {
+  const sample = normalizeCountryList([
+    {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { name: "Belize" },
+          geometry: { type: "Point", coordinates: [0, 0] },
+        },
+        createNameOnlyCountryFeature("Abkhazia"),
+      ],
+    },
+  ]);
+
+  it("lists unique display names", () => {
+    expect(listCountryNames(sample)).toEqual(["Abkhazia", "Belize"]);
+  });
+
+  it("matches country names case-insensitively", () => {
+    expect(featureMatchesCountryName({ admin: "Belize" }, "belize")).toBe(true);
+    expect(featureMatchesCountryName({ name: "Spain" }, "Belize")).toBe(false);
+  });
+
+  it("removes countries by name", () => {
+    const { countries, removed } = removeCountryFeaturesByName(sample, "Belize");
+    expect(removed).toBe(1);
+    expect(listCountryNames(countries)).toEqual(["Abkhazia"]);
+  });
+
+  it("keeps only renderable geometries on the map layer", () => {
+    expect(mapRenderableCountries(sample).features).toHaveLength(1);
+    expect(hasRenderableGeometry(null)).toBe(false);
+    expect(hasRenderableGeometry({ type: "Polygon", coordinates: [] })).toBe(
+      true,
     );
   });
 });

@@ -31,23 +31,19 @@ export default function HomePage() {
         <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
           Future plans is an AI that will automatically scrap my email for new flights/bus tickets/train tickets/countries and add that data automatically.
         </h1>
-        <div className="mt-10">
-          <div className="mb-5">
-            <Link
-              href="/map"
-              className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-            >
-              Open map
-            </Link>
-          </div>
-          <div>
-            <Link
-              href="/blogs"
-              className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-            >
-              Open blogs
-            </Link>
-          </div>
+        <div className="mt-10 flex flex-wrap gap-4">
+          <Link
+            href="/map"
+            className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Open map
+          </Link>
+          <Link
+            href="/blogs"
+            className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Open blogs
+          </Link>
         </div>
 
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   dateSortKey,
   nextSortState,
@@ -10,7 +10,8 @@ import {
 } from "@/lib/admin/table-sort";
 import { AdminInlineInput } from "@/components/admin/AdminInlineField";
 import { SortableHeader } from "@/components/admin/SortableHeader";
-import { normalizeCountryList } from "@/lib/map/countries";
+import { normalizeCountryList, listCountryNames } from "@/lib/map/countries";
+import { countryListWriteSchema } from "@/lib/validations/country-list-write";
 import {
   visitedWriteSchema,
   type VisitedRecord,
@@ -46,6 +47,11 @@ export function VisitedAdmin() {
   const [rowDraft, setRowDraft] = useState<VisitedFormState | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
+  const [countryListMessage, setCountryListMessage] = useState<string | null>(
+    null,
+  );
+  const [countryListName, setCountryListName] = useState("");
+  const [countryListSaving, setCountryListSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sort, setSort] = useState<SortState<VisitedSortKey>>({
     key: "name",
@@ -56,6 +62,24 @@ export function VisitedAdmin() {
     name: (item) => item.name ?? "",
     date: (item) => dateSortKey(item.date ?? ""),
   });
+
+  const visitedNames = useMemo(
+    () =>
+      new Set(
+        visited
+          .map((item) => item.name?.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    [visited],
+  );
+
+  const unvisitedCountryOptions = useMemo(
+    () =>
+      countryOptions.filter(
+        (name) => !visitedNames.has(name.trim().toLowerCase()),
+      ),
+    [countryOptions, visitedNames],
+  );
 
   async function loadVisited(quiet = false) {
     if (!quiet) {
@@ -83,17 +107,8 @@ export function VisitedAdmin() {
           data?: unknown[];
         };
         if (countryBody.ok) {
-          const geo = normalizeCountryList(countryBody.data ?? []);
-          const names = geo.features
-            .map((feature) => {
-              const name = feature.properties.name;
-              return typeof name === "string" ? name.trim() : "";
-            })
-            .filter(Boolean);
           setCountryOptions(
-            [...new Set(names)].sort((a, b) =>
-              a.localeCompare(b, undefined, { sensitivity: "base" }),
-            ),
+            listCountryNames(normalizeCountryList(countryBody.data ?? [])),
           );
         }
       }
@@ -202,6 +217,76 @@ export function VisitedAdmin() {
     await saveRecord(rowDraft, editingId);
   }
 
+  async function onDeleteCountryFromList(name: string) {
+    if (
+      !window.confirm(
+        `Remove "${name}" from the total country list? This affects map pickers and statistics.`,
+      )
+    ) {
+      return;
+    }
+    setCountryListMessage(null);
+    setCountryListSaving(true);
+    try {
+      const response = await fetch(
+        `/api/country-list?name=${encodeURIComponent(name)}`,
+        { method: "DELETE" },
+      );
+      const body = (await response.json()) as {
+        ok: boolean;
+        data?: string[];
+        error?: string;
+      };
+      if (!response.ok || !body.ok || !body.data) {
+        throw new Error(body.error ?? "Delete failed");
+      }
+      setCountryOptions(body.data);
+      setCountryListMessage(`Removed "${name}" from the country list.`);
+    } catch (error) {
+      setCountryListMessage(
+        error instanceof Error ? error.message : "Delete failed",
+      );
+    } finally {
+      setCountryListSaving(false);
+    }
+  }
+
+  async function onAddCountryToList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCountryListMessage(null);
+    const parsed = countryListWriteSchema.safeParse({ name: countryListName });
+    if (!parsed.success) {
+      setCountryListMessage(
+        parsed.error.issues[0]?.message ?? "Invalid country",
+      );
+      return;
+    }
+
+    setCountryListSaving(true);
+    try {
+      const response = await fetch("/api/country-list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const body = (await response.json()) as {
+        ok: boolean;
+        data?: string[];
+        error?: string;
+      };
+      if (!response.ok || !body.ok || !body.data) {
+        throw new Error(body.error ?? "Add failed");
+      }
+      setCountryOptions(body.data);
+      setCountryListName("");
+      setCountryListMessage(`Added "${parsed.data.name}" to the country list.`);
+    } catch (error) {
+      setCountryListMessage(error instanceof Error ? error.message : "Add failed");
+    } finally {
+      setCountryListSaving(false);
+    }
+  }
+
   async function onDelete(id: string) {
     if (!window.confirm("Remove this country from visited?")) return;
     setMessage(null);
@@ -247,11 +332,16 @@ export function VisitedAdmin() {
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
             value={form.name}
             onChange={(event) => updateField("name", event.target.value)}
-            list="visited-country-options"
+            list="visited-country-add-options"
             placeholder="Ireland"
             data-testid="visited-name"
             required
           />
+          <datalist id="visited-country-add-options">
+            {unvisitedCountryOptions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <datalist id="visited-country-options">
             {countryOptions.map((name) => (
               <option key={name} value={name} />
@@ -462,6 +552,95 @@ export function VisitedAdmin() {
             ) : null}
           </div>
         ) : null}
+      </section>
+
+      <section
+        className="grid gap-4 border border-border bg-surface/60 p-4"
+        data-testid="country-list-admin"
+      >
+        <div>
+          <h2 className="font-display text-xl text-foreground">
+            Manage country list
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Add or remove countries from the master list used by the map,
+            visited picker, and statistics. New entries are name-only until map
+            geometry is added separately.
+          </p>
+        </div>
+
+        <form
+          onSubmit={onAddCountryToList}
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          data-testid="country-list-form"
+        >
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-muted">
+            Country name
+            <input
+              className="rounded border border-border bg-background px-3 py-2 text-foreground"
+              value={countryListName}
+              onChange={(event) => setCountryListName(event.target.value)}
+              placeholder="Abkhazia"
+              data-testid="country-list-name"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={countryListSaving}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            data-testid="country-list-add"
+          >
+            {countryListSaving ? "Saving…" : "Add to list"}
+          </button>
+        </form>
+
+        {countryListMessage ? (
+          <p className="text-sm text-muted" data-testid="country-list-message">
+            {countryListMessage}
+          </p>
+        ) : null}
+
+        <div className="overflow-x-auto border border-border">
+          <table
+            className="min-w-full text-left text-sm"
+            data-testid="country-list-table"
+          >
+            <thead className="bg-surface text-muted">
+              <tr>
+                <th className="px-3 py-2 font-medium">Country / territory</th>
+                <th className="px-3 py-2 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {countryOptions.map((name) => (
+                <tr
+                  key={name}
+                  className="border-t border-border text-foreground"
+                  data-testid={`country-list-row-${name.replace(/\s+/g, "-").toLowerCase()}`}
+                >
+                  <td className="px-3 py-2">{name}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      className="text-red-300 hover:underline disabled:opacity-60"
+                      disabled={countryListSaving}
+                      onClick={() => void onDeleteCountryFromList(name)}
+                      data-testid={`country-list-delete-${name.replace(/\s+/g, "-").toLowerCase()}`}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {countryOptions.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-muted">
+              No countries on the list yet.
+            </p>
+          ) : null}
+        </div>
       </section>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   countryDisplayName,
   countryHoverStyle,
   featureCountryStatus,
+  mapRenderableCountries,
   type CountryFeatureCollection,
 } from "@/lib/map/countries";
 import type { MongoBlog } from "@/lib/validations/map-data";
@@ -85,7 +86,10 @@ export function VisitedCountriesLayer({
   const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
   const namesRef = useRef({ visitedNames, blogCountryNames, blogs });
   namesRef.current = { visitedNames, blogCountryNames, blogs };
-  const data = countries as FeatureCollection<Geometry>;
+  const data = useMemo(
+    () => mapRenderableCountries(countries) as FeatureCollection<Geometry>,
+    [countries],
+  );
   const renderer = useMemo(
     () => L.canvas({ padding: 0.5, pane: COUNTRIES_PANE }),
     [],
@@ -196,7 +200,7 @@ export function VisitedCountriesLayer({
       <InvalidateSizeOnMount />
       <GeoJSON
         ref={geoJsonRef}
-        key={`countries-${countries.features.length}`}
+        key={`countries-${data.features.length}`}
         data={data}
         pane={COUNTRIES_PANE}
         style={style}

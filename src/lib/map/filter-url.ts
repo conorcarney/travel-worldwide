@@ -34,10 +34,10 @@ export const DEFAULT_LAYERS: LayerVisibility = {
 };
 
 /** Default map zoom when the URL omits `zoom`. */
-export const DEFAULT_MAP_ZOOM = 2;
+export const DEFAULT_MAP_ZOOM = 6;
 
 /** Default playback speed when the URL omits `speed`. */
-export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "slow";
+export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "normal";
 
 export function formatYearMonthParam(value: YearMonth): string {
   return `${value.year}-${String(value.month).padStart(2, "0")}`;

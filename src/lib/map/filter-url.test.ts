@@ -50,11 +50,11 @@ describe("buildMapFilterQuery", () => {
         boundsMax,
         tags: [],
         layers: DEFAULT_LAYERS,
-        speed: "slow",
-        zoom: 2,
+        speed: "normal",
+        zoom: 6,
         paused: false,
       }),
-    ).toBe("speed=slow&zoom=2&paused=0");
+    ).toBe("speed=normal&zoom=6&paused=0");
   });
 
   it("writes from, to, tag, hide, and show", () => {
@@ -66,12 +66,12 @@ describe("buildMapFilterQuery", () => {
         boundsMax,
         tags: ["Long distance"],
         layers: { ...DEFAULT_LAYERS, flight: false, bookmarks: true },
-        speed: "slow",
-        zoom: 2,
+        speed: "normal",
+        zoom: 6,
         paused: false,
       }),
     ).toBe(
-      "from=2019-08&to=2020-01&tag=Long+distance&hide=flight&show=bookmarks&speed=slow&zoom=2&paused=0",
+      "from=2019-08&to=2020-01&tag=Long+distance&hide=flight&show=bookmarks&speed=normal&zoom=6&paused=0",
     );
   });
 
@@ -84,11 +84,11 @@ describe("buildMapFilterQuery", () => {
         boundsMax,
         tags: ["Work", "Family"],
         layers: DEFAULT_LAYERS,
-        speed: "slow",
-        zoom: 2,
+        speed: "normal",
+        zoom: 6,
         paused: false,
       }),
-    ).toBe("tag=Work&tag=Family&speed=slow&zoom=2&paused=0");
+    ).toBe("tag=Work&tag=Family&speed=normal&zoom=6&paused=0");
   });
 
   it("writes non-default speed, zoom, and paused", () => {
@@ -122,8 +122,8 @@ describe("playback URL params", () => {
     const parsed = parseMapFilterSearch(
       new URLSearchParams("speed=warp&zoom=nope&paused=0"),
     );
-    expect(parsed.speed).toBe("slow");
-    expect(parsed.zoom).toBe(2);
+    expect(parsed.speed).toBe("normal");
+    expect(parsed.zoom).toBe(6);
     expect(parsed.paused).toBe(false);
   });
 

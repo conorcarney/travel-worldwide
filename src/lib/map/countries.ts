@@ -17,6 +17,10 @@ function normalizeName(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function countryNameKey(value: string): string {
+  return normalizeName(value);
+}
+
 function featureNameCandidates(
   properties: Record<string, unknown> | null | undefined,
 ): string[] {
@@ -83,6 +87,66 @@ export function featureIsVisited(
   visited: Set<string>,
 ): boolean {
   return nameSetMatches(properties, visited);
+}
+
+export function featureMatchesCountryName(
+  properties: Record<string, unknown> | null | undefined,
+  name: string,
+): boolean {
+  if (!name.trim()) return false;
+  return nameSetMatches(properties, new Set([normalizeName(name)]));
+}
+
+export function hasRenderableGeometry(geometry: unknown): boolean {
+  if (!geometry || typeof geometry !== "object") return false;
+  const type = (geometry as { type?: unknown }).type;
+  return typeof type === "string" && type.length > 0;
+}
+
+/** Names shown in admin pickers and statistics (one per feature). */
+export function listCountryNames(
+  countries: CountryFeatureCollection,
+): string[] {
+  const names = countries.features
+    .map((feature) => countryDisplayName(feature.properties))
+    .filter((name) => name !== "Unknown");
+  return [...new Set(names)].sort((a, b) =>
+    a.localeCompare(b, "en-GB", { sensitivity: "base" }),
+  );
+}
+
+/** Drop name-only checklist entries that have no map geometry. */
+export function mapRenderableCountries(
+  countries: CountryFeatureCollection,
+): CountryFeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: countries.features.filter((feature) =>
+      hasRenderableGeometry(feature.geometry),
+    ),
+  };
+}
+
+export function createNameOnlyCountryFeature(name: string) {
+  return {
+    type: "Feature" as const,
+    properties: { name: name.trim() },
+    geometry: null,
+  };
+}
+
+export function removeCountryFeaturesByName(
+  countries: CountryFeatureCollection,
+  name: string,
+): { countries: CountryFeatureCollection; removed: number } {
+  const before = countries.features.length;
+  const features = countries.features.filter(
+    (feature) => !featureMatchesCountryName(feature.properties, name),
+  );
+  return {
+    countries: { type: "FeatureCollection", features },
+    removed: before - features.length,
+  };
 }
 
 export function featureCountryStatus(
