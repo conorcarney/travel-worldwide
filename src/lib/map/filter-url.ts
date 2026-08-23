@@ -1,4 +1,8 @@
 import type { TravelMode } from "@/lib/validations/map-data";
+import {
+  PLAYBACK_SPEEDS,
+  type PlaybackSpeedId,
+} from "@/lib/map/journey";
 import { yearMonthKey, type YearMonth } from "@/lib/map/timeline";
 import { clampYearMonth } from "@/lib/map/years";
 
@@ -29,6 +33,12 @@ export const DEFAULT_LAYERS: LayerVisibility = {
   bookmarks: false,
 };
 
+/** Default map zoom when the URL omits `zoom`. */
+export const DEFAULT_MAP_ZOOM = 2;
+
+/** Default playback speed when the URL omits `speed`. */
+export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "slow";
+
 export function formatYearMonthParam(value: YearMonth): string {
   return `${value.year}-${String(value.month).padStart(2, "0")}`;
 }
@@ -45,6 +55,37 @@ export function parseYearMonthParam(value: string | null): YearMonth | null {
 
 function isLayerKey(value: string): value is MapLayerKey {
   return (MAP_LAYER_KEYS as readonly string[]).includes(value);
+}
+
+function isPlaybackSpeedId(value: string): value is PlaybackSpeedId {
+  return PLAYBACK_SPEEDS.some((speed) => speed.id === value);
+}
+
+export function parsePlaybackSpeedParam(
+  value: string | null,
+): PlaybackSpeedId {
+  const trimmed = value?.trim().toLowerCase() ?? "";
+  if (isPlaybackSpeedId(trimmed)) return trimmed;
+  return DEFAULT_PLAYBACK_SPEED;
+}
+
+export function parseMapZoomParam(value: string | null): number {
+  if (!value) return DEFAULT_MAP_ZOOM;
+  const zoom = Number(value);
+  if (!Number.isFinite(zoom)) return DEFAULT_MAP_ZOOM;
+  return Math.min(18, Math.max(1, Math.round(zoom)));
+}
+
+export function parsePausedParam(search: {
+  get: (name: string) => string | null;
+}): boolean {
+  const paused = search.get("paused");
+  if (paused === "1" || paused === "true") return true;
+  if (paused === "0" || paused === "false") return false;
+  const play = search.get("play");
+  if (play === "0" || play === "false") return true;
+  if (play === "1" || play === "true") return false;
+  return false;
 }
 
 export function layersFromSearch(
@@ -64,20 +105,28 @@ export function layersFromSearch(
   return layers;
 }
 
-export function parseMapFilterSearch(search: {
-  get: (name: string) => string | null;
-  getAll?: (name: string) => string[];
-}): {
+export type MapFilterSearch = {
   from: YearMonth | null;
   to: YearMonth | null;
   tags: string[];
   layers: LayerVisibility;
-} {
+  speed: PlaybackSpeedId;
+  zoom: number;
+  paused: boolean;
+};
+
+export function parseMapFilterSearch(search: {
+  get: (name: string) => string | null;
+  getAll?: (name: string) => string[];
+}): MapFilterSearch {
   return {
     from: parseYearMonthParam(search.get("from")),
     to: parseYearMonthParam(search.get("to")),
     tags: parseTagParams(search),
     layers: layersFromSearch(search),
+    speed: parsePlaybackSpeedParam(search.get("speed")),
+    zoom: parseMapZoomParam(search.get("zoom")),
+    paused: parsePausedParam(search),
   };
 }
 
@@ -123,6 +172,9 @@ export function buildMapFilterQuery(input: {
   boundsMax: YearMonth;
   tags: string[];
   layers: LayerVisibility;
+  speed?: PlaybackSpeedId;
+  zoom?: number;
+  paused?: boolean;
 }): string {
   const params = new URLSearchParams();
   if (yearMonthKey(input.from) !== yearMonthKey(input.boundsMin)) {
@@ -149,6 +201,14 @@ export function buildMapFilterQuery(input: {
   );
   if (hide.length > 0) params.set("hide", hide.join(","));
   if (show.length > 0) params.set("show", show.join(","));
+
+  const speed = input.speed ?? DEFAULT_PLAYBACK_SPEED;
+  params.set("speed", speed);
+
+  const zoom = input.zoom ?? DEFAULT_MAP_ZOOM;
+  params.set("zoom", String(zoom));
+
+  params.set("paused", input.paused ? "1" : "0");
 
   return params.toString();
 }

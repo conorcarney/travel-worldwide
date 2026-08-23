@@ -64,6 +64,8 @@ import type {
 import {
   buildMapFilterQuery,
   clampFilterRange,
+  DEFAULT_MAP_ZOOM,
+  DEFAULT_PLAYBACK_SPEED,
   parseMapFilterSearch,
 } from "@/lib/map/filter-url";
 import {
@@ -72,6 +74,7 @@ import {
 } from "@/components/map/MapControls";
 import { JourneyMediaOverlay } from "@/components/map/JourneyMediaOverlay";
 import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
+import { MapZoomSync } from "@/components/map/MapZoomSync";
 import { OpenFreeMapLayer } from "@/components/map/OpenFreeMapLayer";
 import { TravelStats } from "@/components/map/TravelStats";
 import { VisitedCountriesLayer } from "@/components/map/VisitedCountriesLayer";
@@ -220,8 +223,15 @@ export default function TravelMap() {
   const [playGeneration, setPlayGeneration] = useState(0);
   const [revealedRouteIds, setRevealedRouteIds] = useState<string[]>([]);
   const [activeJourney, setActiveJourney] = useState<MapRoute | null>(null);
-  const [playbackPaused, setPlaybackPaused] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>("slow");
+  const [playbackPaused, setPlaybackPaused] = useState(
+    () => parseMapFilterSearch(searchParams).paused,
+  );
+  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>(
+    () => parseMapFilterSearch(searchParams).speed ?? DEFAULT_PLAYBACK_SPEED,
+  );
+  const [mapZoom, setMapZoom] = useState(
+    () => parseMapFilterSearch(searchParams).zoom ?? DEFAULT_MAP_ZOOM,
+  );
   const [showAll, setShowAll] = useState(false);
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
@@ -343,6 +353,9 @@ export default function TravelMap() {
       boundsMax: rangeMax,
       tags: tagFilters,
       layers,
+      speed: playbackSpeed,
+      zoom: mapZoom,
+      paused: playbackPaused,
     });
     const current = window.location.search.replace(/^\?/, "");
     if (current === query) return;
@@ -359,6 +372,9 @@ export default function TravelMap() {
     rangeMax,
     tagFilters,
     layers,
+    playbackSpeed,
+    mapZoom,
+    playbackPaused,
     pathname,
   ]);
 
@@ -703,6 +719,8 @@ export default function TravelMap() {
           <JourneyMediaOverlay
             media={activeJourney.media}
             title={journeyTitle(activeJourney)}
+            mode={activeJourney.mode}
+            tags={activeTags}
           />
         ) : null}
         {status === "ready" ? (
@@ -794,29 +812,11 @@ export default function TravelMap() {
                 ))}
               </span>
             </div>
-            {activeJourney ? (
-              <p
-                className="w-full rounded-xl border border-border bg-surface/90 px-4 py-2 text-center text-foreground shadow"
-                data-testid="journey-caption"
-                aria-live="polite"
-              >
-                <span className="block text-base sm:text-lg">
-                  <span className="capitalize">{activeJourney.mode}</span>
-                  {": "}
-                  {journeyTitle(activeJourney)}
-                </span>
-                {activeTags.length > 0 ? (
-                  <span className="mt-1 block text-sm text-muted">
-                    {activeTags.join(" · ")}
-                  </span>
-                ) : null}
-              </p>
-            ) : null}
           </div>
         ) : null}
         <MapContainer
           center={[53.3498, -6.2603]}
-          zoom={6}
+          zoom={mapZoom}
           minZoom={1}
           maxBounds={[
             [180, Number.NEGATIVE_INFINITY],
@@ -828,6 +828,7 @@ export default function TravelMap() {
           attributionControl
         >
           <OpenFreeMapLayer />
+          <MapZoomSync zoom={mapZoom} onZoomChange={setMapZoom} />
 
           {layers.visited && countries.features.length > 0 ? (
             <VisitedCountriesLayer
