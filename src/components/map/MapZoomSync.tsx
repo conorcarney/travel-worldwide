@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { LeafletEvent } from "leaflet";
 import { useMap } from "react-leaflet";
 
 type MapZoomSyncProps = {
@@ -30,8 +31,8 @@ export function MapZoomSync({ zoom, onZoomChange }: MapZoomSyncProps) {
       userInitiatedRef.current = true;
     };
 
-    const onZoomStart = (event: { originalEvent?: Event }) => {
-      if (event.originalEvent) {
+    const onZoomStart = (event: LeafletEvent) => {
+      if ("originalEvent" in event && event.originalEvent) {
         userInitiatedRef.current = true;
       }
     };
