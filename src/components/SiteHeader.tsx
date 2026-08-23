@@ -6,7 +6,9 @@ import { isAdminSession } from "@/lib/authz";
 const publicLinks = [
   { href: "/", label: "Home" },
   { href: "/map", label: "Map" },
+  { href: "/stats", label: "Statistics" },
   { href: "/blogs", label: "Blogs" },
+  { href: "/contact", label: "Contact" },
 ] as const;
 
 export async function SiteHeader() {

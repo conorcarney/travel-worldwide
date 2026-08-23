@@ -23,10 +23,13 @@ export default function HomePage() {
           my vision, rules to follow, and stylistic guides through a variety of agent.md files.
         </h1>
         <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
-          At the moment data is still manually entered.
+          More on the tech side - there's an auth stream for access to admin, customised admin panels for a variety of CRUD functions, and for viewing google analytics.
         </h1>
         <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
-          Future plans is an AI that will automatically scrap my email for new flights/bus tickets/train tickets/countries and add that data automatically. Statistics update automatically.
+          At the moment data is still manually entered.  Statistics update automatically.
+        </h1>
+        <h1 className="mt-4 max-w-4xl text-lg text-muted sm:text-xl">
+          Future plans is an AI that will automatically scrap my email for new flights/bus tickets/train tickets/countries and add that data automatically.
         </h1>
         <div className="mt-10">
           <div className="mb-5">

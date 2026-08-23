@@ -19,6 +19,7 @@ type TravelStatsProps = {
   countriesByYear: CountriesByYearRow[];
   rangeLabel: string;
   asOfLabel: string;
+  className?: string;
 };
 
 export function TravelStats({
@@ -26,10 +27,11 @@ export function TravelStats({
   countriesByYear,
   rangeLabel,
   asOfLabel,
+  className = "border-t border-border bg-surface px-4 py-6 sm:px-6",
 }: TravelStatsProps) {
   return (
     <section
-      className="border-t border-border bg-surface px-4 py-6 sm:px-6"
+      className={className}
       data-testid="travel-stats"
       aria-labelledby="travel-stats-heading"
     >
