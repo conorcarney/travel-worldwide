@@ -67,6 +67,7 @@ import {
   DEFAULT_MAP_ZOOM,
   DEFAULT_PLAYBACK_SPEED,
   parseMapFilterSearch,
+  resolveInitialMapZoom,
 } from "@/lib/map/filter-url";
 import {
   MapControls,
@@ -229,16 +230,23 @@ export default function TravelMap() {
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeedId>(
     () => parseMapFilterSearch(searchParams).speed ?? DEFAULT_PLAYBACK_SPEED,
   );
-  const [mapZoom, setMapZoom] = useState(
-    () => parseMapFilterSearch(searchParams).zoom ?? DEFAULT_MAP_ZOOM,
+  const [mapZoom, setMapZoom] = useState(() =>
+    resolveInitialMapZoom(
+      parseMapFilterSearch(searchParams).zoom ?? DEFAULT_MAP_ZOOM,
+    ),
   );
   const [showAll, setShowAll] = useState(false);
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
   );
   const layersRef = useRef(layers);
-  const userFollowZoomRef = useRef<number | null>(null);
+  // Keep follow-cam on the overview/user zoom — never auto flyTo ~15.
+  const userFollowZoomRef = useRef<number | null>(mapZoom);
   const followCameraRef = useRef<FollowCameraState | null>(null);
+
+  useEffect(() => {
+    userFollowZoomRef.current = mapZoom;
+  }, [mapZoom]);
 
   useEffect(() => {
     let cancelled = false;
@@ -614,7 +622,7 @@ export default function TravelMap() {
   }
 
   function enableShowAll() {
-    userFollowZoomRef.current = null;
+    userFollowZoomRef.current = mapZoom;
     followCameraRef.current = null;
     setShowAll(true);
     setActiveJourney(null);

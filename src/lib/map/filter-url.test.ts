@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LAYERS,
+  DEFAULT_MAP_ZOOM,
   buildMapFilterQuery,
   clampFilterRange,
   parseMapFilterSearch,
   parseYearMonthParam,
+  resolveInitialMapZoom,
 } from "@/lib/map/filter-url";
 
 describe("parseYearMonthParam", () => {
@@ -108,6 +110,20 @@ describe("buildMapFilterQuery", () => {
   });
 });
 
+describe("resolveInitialMapZoom", () => {
+  it("keeps overview zooms from the URL", () => {
+    expect(resolveInitialMapZoom(6)).toBe(6);
+    expect(resolveInitialMapZoom(8)).toBe(8);
+    expect(resolveInitialMapZoom(2)).toBe(2);
+  });
+
+  it("drops legacy follow-cam zooms so loads are not super zoomed in", () => {
+    expect(resolveInitialMapZoom(9)).toBe(DEFAULT_MAP_ZOOM);
+    expect(resolveInitialMapZoom(15)).toBe(DEFAULT_MAP_ZOOM);
+    expect(resolveInitialMapZoom(Number.NaN)).toBe(DEFAULT_MAP_ZOOM);
+  });
+});
+
 describe("playback URL params", () => {
   it("parses speed, zoom, and paused", () => {
     const parsed = parseMapFilterSearch(
@@ -116,6 +132,7 @@ describe("playback URL params", () => {
     expect(parsed.speed).toBe("fastest");
     expect(parsed.zoom).toBe(10);
     expect(parsed.paused).toBe(true);
+    expect(resolveInitialMapZoom(parsed.zoom)).toBe(DEFAULT_MAP_ZOOM);
   });
 
   it("falls back to defaults for bad values", () => {

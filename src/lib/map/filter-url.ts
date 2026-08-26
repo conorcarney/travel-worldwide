@@ -36,8 +36,22 @@ export const DEFAULT_LAYERS: LayerVisibility = {
 /** Default map zoom when the URL omits `zoom`. */
 export const DEFAULT_MAP_ZOOM = 6;
 
+/**
+ * Highest zoom restored from the URL on load.
+ * Follow-cam used to persist ~9–16 into `zoom=`; those values are treated as
+ * unset so production refreshes don't reopen super-zoomed-in.
+ */
+export const MAX_RESTORED_MAP_ZOOM = 8;
+
 /** Default playback speed when the URL omits `speed`. */
 export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "normal";
+
+/** Initial map zoom from a parsed URL value (drops legacy follow-cam zooms). */
+export function resolveInitialMapZoom(urlZoom: number): number {
+  if (!Number.isFinite(urlZoom)) return DEFAULT_MAP_ZOOM;
+  if (urlZoom > MAX_RESTORED_MAP_ZOOM) return DEFAULT_MAP_ZOOM;
+  return Math.min(MAX_RESTORED_MAP_ZOOM, Math.max(1, Math.round(urlZoom)));
+}
 
 export function formatYearMonthParam(value: YearMonth): string {
   return `${value.year}-${String(value.month).padStart(2, "0")}`;
