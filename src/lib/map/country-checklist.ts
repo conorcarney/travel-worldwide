@@ -19,6 +19,11 @@ export const DISPUTED_TERRITORIES = [
   "Western Sahara",
 ] as const;
 
+/** Extra checklist names that are not labelled "disputed" in the UI. */
+const UNDISPUTED_EXTRA_TERRITORIES = new Set(
+  ["Palestine", "Vatican"].map((name) => name.toLowerCase()),
+);
+
 export type CountryChecklistRow = {
   name: string;
   visited: boolean;
@@ -31,6 +36,10 @@ function normalizeName(value: string): string {
 
 function rowKey(name: string): string {
   return normalizeName(name);
+}
+
+function isDisputedTerritory(name: string): boolean {
+  return !UNDISPUTED_EXTRA_TERRITORIES.has(normalizeName(name));
 }
 
 /** Build alphabetised checklist rows from map countries + disputed territories. */
@@ -54,15 +63,16 @@ export function buildCountryChecklist(
 
   for (const territory of DISPUTED_TERRITORIES) {
     const key = rowKey(territory);
+    const disputed = isDisputedTerritory(territory);
     if (rows.has(key)) {
       const existing = rows.get(key)!;
-      rows.set(key, { ...existing, disputed: true });
+      rows.set(key, { ...existing, disputed });
       continue;
     }
     rows.set(key, {
       name: territory,
       visited: visitedNames.has(key),
-      disputed: true,
+      disputed,
     });
   }
 

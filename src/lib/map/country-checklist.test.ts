@@ -54,13 +54,23 @@ describe("buildCountryChecklist", () => {
             properties: { name: "Palestine" },
             geometry: null,
           },
+          {
+            type: "Feature",
+            properties: { name: "Taiwan" },
+            geometry: null,
+          },
         ],
       },
       [],
     );
-    expect(rows).toHaveLength(DISPUTED_TERRITORIES.length);
     expect(rows.find((row) => row.name === "Palestine")).toEqual({
       name: "Palestine",
+      visited: false,
+      disputed: false,
+    });
+    expect(rows.find((row) => row.name === "Vatican")?.disputed).toBe(false);
+    expect(rows.find((row) => row.name === "Taiwan")).toEqual({
+      name: "Taiwan",
       visited: false,
       disputed: true,
     });

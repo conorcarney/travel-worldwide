@@ -11,6 +11,7 @@ describe("COLLECTIONS", () => {
       busesTrainsAndFerries: "BusesTrainsAndFerries",
       mapsMeBookmarks: "MapsMeBookmarks",
       blogs: "Blogs",
+      countryRatings: "CountryRatings",
       users: "users",
       roles: "roles",
     });

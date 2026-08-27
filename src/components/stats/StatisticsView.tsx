@@ -124,16 +124,66 @@ function ModeRow({
   );
 }
 
+export function CountriesByYearTable({
+  countriesByYear,
+}: {
+  countriesByYear: ExtendedTravelStatistics["countriesByYear"];
+}) {
+  return (
+    <section className="mt-10" data-testid="countries-by-year">
+      <h2 className="font-display text-lg text-foreground">
+        New countries by year
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        First-time visits counted once, in the earliest year with a date.
+      </p>
+      <div className="mt-4 overflow-x-auto">
+        <table
+          className="w-full max-w-md text-left text-sm"
+          data-testid="countries-by-year-table"
+        >
+          <thead>
+            <tr className="border-b border-border text-muted">
+              <th className="pb-2 pr-4 font-medium">Year</th>
+              <th className="pb-2 font-medium">New countries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {countriesByYear.map((row) => (
+              <tr
+                key={row.year}
+                className="border-b border-border/60"
+                data-testid={`countries-by-year-${row.year}`}
+              >
+                <td className="py-2.5 pr-4 tabular-nums text-foreground">
+                  {row.year}
+                </td>
+                <td className="py-2.5 tabular-nums text-foreground">
+                  {row.newCountries.toLocaleString("en-GB")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {countriesByYear.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">
+            No dated country visits yet.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function StatisticsView({
   countriesVisited,
   unMemberTotal,
   allCountriesTotal,
   longestAwayFromHome,
   travel,
-  countriesByYear,
   topAirports,
   topCountries,
-}: StatisticsViewProps) {
+}: Omit<StatisticsViewProps, "countriesByYear">) {
   const flights = modeStats(travel, "flight");
   const unPct =
     unMemberTotal > 0
@@ -156,7 +206,7 @@ export function StatisticsView({
         <StatCard
           label="All countries visited"
           value={`${countriesVisited.toLocaleString("en-GB")} / ${allCountriesTotal}`}
-          detail={`${allPct}% including disputed territories & Vatican`}
+          detail={`${allPct}% including disputed territories`}
           testId="statistics-all-countries"
         />
         <StatCard
@@ -240,49 +290,6 @@ export function StatisticsView({
         countLabel="Visits"
         testId="statistics-top-countries"
       />
-
-      <section className="mt-10">
-        <h2 className="font-display text-lg text-foreground">
-          New countries by year
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          First-time visits counted once, in the earliest year with a date.
-        </p>
-        <div className="mt-4 overflow-x-auto">
-          <table
-            className="w-full max-w-md text-left text-sm"
-            data-testid="countries-by-year-table"
-          >
-            <thead>
-              <tr className="border-b border-border text-muted">
-                <th className="pb-2 pr-4 font-medium">Year</th>
-                <th className="pb-2 font-medium">New countries</th>
-              </tr>
-            </thead>
-            <tbody>
-              {countriesByYear.map((row) => (
-                <tr
-                  key={row.year}
-                  className="border-b border-border/60"
-                  data-testid={`countries-by-year-${row.year}`}
-                >
-                  <td className="py-2.5 pr-4 tabular-nums text-foreground">
-                    {row.year}
-                  </td>
-                  <td className="py-2.5 tabular-nums text-foreground">
-                    {row.newCountries.toLocaleString("en-GB")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {countriesByYear.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">
-              No dated country visits yet.
-            </p>
-          ) : null}
-        </div>
-      </section>
     </div>
   );
 }

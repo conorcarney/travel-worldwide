@@ -1,4 +1,5 @@
 import type { CollectionKey } from "@/lib/collections";
+import { COUNTRY_RATING_SEED } from "@/lib/map/country-ratings";
 
 /** Sample documents matching Atlas `Countries` shapes (used without Mongo). */
 export const fixtures: Record<CollectionKey, unknown[]> = {
@@ -75,6 +76,7 @@ export const fixtures: Record<CollectionKey, unknown[]> = {
       tags: "",
     },
   ],
+  countryRatings: COUNTRY_RATING_SEED,
   users: [],
   roles: [{ name: "admin" }],
 };

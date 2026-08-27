@@ -48,6 +48,17 @@ export default function AdminPage() {
         </li>
         <li>
           <Link
+            href="/admin/country-ratings"
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            Country ratings
+          </Link>
+          <span className="ml-2 text-sm text-muted">
+            Add, update, and remove personal country ratings
+          </span>
+        </li>
+        <li>
+          <Link
             href="/admin/blogs"
             className="text-accent underline-offset-2 hover:underline"
           >
