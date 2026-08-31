@@ -29,6 +29,20 @@ export function parseLngLatString(value: string): [number, number] | null {
   return [lat, lng];
 }
 
+function isFiniteCoord(value: unknown): value is number | string {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string" && value.trim() !== "") {
+    return Number.isFinite(Number(value));
+  }
+  return false;
+}
+
+/** Format stored lng/lat for display. Mongo may hold either numbers or numeric strings. */
+export function formatLngLatString(lng: unknown, lat: unknown): string {
+  if (!isFiniteCoord(lng) || !isFiniteCoord(lat)) return "";
+  return `${lng}, ${lat}`;
+}
+
 function docId(value: unknown, fallback: string): string {
   if (typeof value === "string" || typeof value === "number") {
     return String(value);

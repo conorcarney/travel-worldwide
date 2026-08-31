@@ -8,6 +8,7 @@ export const COLLECTIONS = {
   mapsMeBookmarks: "MapsMeBookmarks",
   blogs: "Blogs",
   countryRatings: "CountryRatings",
+  passatBorderCrossings: "PassatBorderCrossings",
   users: "users",
   roles: "roles",
 } as const;

@@ -1,3 +1,5 @@
+import { parseTripDate } from "@/lib/trip-date";
+
 export const MAX_TRIP_MEDIA_BYTES = 80 * 1024 * 1024;
 
 export const ALLOWED_TRIP_MEDIA_TYPES = [
@@ -74,92 +76,20 @@ export function sanitizeMediaFilename(filename: string): string {
   return safe.slice(0, 80) || "file";
 }
 
-const MONTH_NAMES = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "may",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "oct",
-  "nov",
-  "dec",
-] as const;
-
 export type TripDateParts = {
   year: number;
   month: number;
   day?: number;
 };
 
-function monthFromName(value: string): number {
-  const token = value.slice(0, 3).toLowerCase();
-  return MONTH_NAMES.indexOf(token as (typeof MONTH_NAMES)[number]) + 1;
-}
-
-function toTripDateParts(
-  year: number,
-  month: number,
-  day?: number,
-): TripDateParts | null {
-  if (!Number.isFinite(year) || year < 1900 || year > 2100) return null;
-  if (!Number.isFinite(month) || month < 1 || month > 12) return null;
-  if (day === undefined) return { year, month };
-  if (!Number.isFinite(day) || day < 1 || day > 31) return { year, month };
-  return { year, month, day };
-}
-
 export function parseTripDateParts(value?: string): TripDateParts | null {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return null;
-
-  const mapsMe = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (mapsMe) {
-    return toTripDateParts(Number(mapsMe[1]), Number(mapsMe[2]), Number(mapsMe[3]));
-  }
-
-  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    return toTripDateParts(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-  }
-
-  const dayMonthYear = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dayMonthYear) {
-    return toTripDateParts(
-      Number(dayMonthYear[3]),
-      Number(dayMonthYear[2]),
-      Number(dayMonthYear[1]),
-    );
-  }
-
-  const namedDay = trimmed.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
-  if (namedDay) {
-    return toTripDateParts(
-      Number(namedDay[3]),
-      monthFromName(namedDay[2]!),
-      Number(namedDay[1]),
-    );
-  }
-
-  const namedMonth = trimmed.match(/^([A-Za-z]{3,9})\s+(\d{4})$/);
-  if (namedMonth) {
-    return toTripDateParts(Number(namedMonth[2]), monthFromName(namedMonth[1]!));
-  }
-
-  const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
-  if (monthYear) {
-    return toTripDateParts(Number(monthYear[2]), Number(monthYear[1]));
-  }
-
-  const yearOnly = trimmed.match(/^(\d{4})$/);
-  if (yearOnly) {
-    return toTripDateParts(Number(yearOnly[1]), 1);
-  }
-
-  return null;
+  const parsed = parseTripDate(value ?? "");
+  if (!parsed) return null;
+  return {
+    year: parsed.year,
+    month: parsed.month,
+    ...(parsed.day !== undefined ? { day: parsed.day } : {}),
+  };
 }
 
 export function tripDateFolder(

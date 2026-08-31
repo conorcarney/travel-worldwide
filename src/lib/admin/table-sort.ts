@@ -1,3 +1,5 @@
+import { tripDateSortKey } from "@/lib/trip-date";
+
 export type SortDirection = "asc" | "desc";
 
 export type SortState<K extends string> = {
@@ -21,28 +23,10 @@ export function nextSortState<K extends string>(
 
 /**
  * Build a lexicographically sortable key for mixed admin date strings
- * (DD/MM/YYYY, M/YYYY, YYYY-MM-DD, YYYY/MM/DD).
+ * (DD/MM/YYYY, optional HH:MM, M/YYYY, YYYY-MM-DD, YYYY/MM/DD).
  */
 export function dateSortKey(date: string): string {
-  const trimmed = date.trim();
-  if (!trimmed) return "";
-
-  const yearFirst = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
-  if (yearFirst) {
-    return `${yearFirst[1]}${yearFirst[2].padStart(2, "0")}${yearFirst[3].padStart(2, "0")}`;
-  }
-
-  const dayMonthYear = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dayMonthYear) {
-    return `${dayMonthYear[3]}${dayMonthYear[2].padStart(2, "0")}${dayMonthYear[1].padStart(2, "0")}`;
-  }
-
-  const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
-  if (monthYear) {
-    return `${monthYear[2]}${monthYear[1].padStart(2, "0")}00`;
-  }
-
-  return trimmed;
+  return tripDateSortKey(date);
 }
 
 export function compareSortValues(

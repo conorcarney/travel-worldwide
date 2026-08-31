@@ -17,6 +17,10 @@ import {
 describe("parseYearMonth", () => {
   it("parses DD/MM/YYYY and M/YYYY", () => {
     expect(parseYearMonth("19/01/2023")).toEqual({ year: 2023, month: 1 });
+    expect(parseYearMonth("19/01/2023 14:30")).toEqual({
+      year: 2023,
+      month: 1,
+    });
     expect(parseYearMonth("2/2020")).toEqual({ year: 2020, month: 2 });
   });
 
@@ -63,6 +67,7 @@ describe("isOnOrBefore / filterByPlaybackMonth", () => {
       "Jan 1992 – Dec 2027",
     );
     expect(formatTripDate("15/08/2019")).toBe("15 Aug 2019");
+    expect(formatTripDate("15/08/2019 14:30")).toBe("15 Aug 2019, 14:30");
     expect(formatTripDate("2019-08-12")).toBe("12 Aug 2019");
     expect(formatTripDate("2/2020")).toBe("Feb 2020");
     expect(formatTripDate("")).toBe("");
@@ -104,10 +109,11 @@ describe("isOnOrBefore / filterByPlaybackMonth", () => {
 });
 
 describe("dateOrderKey / playback steps", () => {
-  it("orders mixed date formats by calendar day", () => {
-    expect(dateOrderKey("15/08/2019")).toBe(20190815);
-    expect(dateOrderKey("2019-08-12")).toBe(20190812);
-    expect(dateOrderKey("2/2020")).toBe(20200201);
+  it("orders mixed date formats by calendar day and time", () => {
+    expect(dateOrderKey("15/08/2019")).toBe(20190815000000);
+    expect(dateOrderKey("2019-08-12")).toBe(20190812000000);
+    expect(dateOrderKey("2/2020")).toBe(20200201000000);
+    expect(dateOrderKey("15/08/2019 14:30")).toBe(20190815143000);
     expect(dateOrderKey("")).toBe(Number.POSITIVE_INFINITY);
   });
 
@@ -121,6 +127,17 @@ describe("dateOrderKey / playback steps", () => {
       "c",
       "a",
       "b",
+    ]);
+  });
+
+  it("orders same-day routes by time", () => {
+    const items = [
+      { id: "later", date: "15/01/2020 18:00" },
+      { id: "earlier", date: "15/01/2020 09:15" },
+    ];
+    expect([...items].sort(compareByDateThenId).map((item) => item.id)).toEqual([
+      "earlier",
+      "later",
     ]);
   });
 

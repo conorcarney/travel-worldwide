@@ -1,9 +1,22 @@
+"use client";
+
 import type { CountryChecklistRow } from "@/lib/map/country-checklist";
+import { SortableHeader } from "@/components/admin/SortableHeader";
+import { useTableSort } from "@/lib/admin/use-table-sort";
 
 type CountryChecklistProps = {
   rows: CountryChecklistRow[];
   visitedCount: number;
   totalCount: number;
+};
+
+type ChecklistSortKey = "name";
+
+const CHECKLIST_ACCESSORS: Record<
+  ChecklistSortKey,
+  (row: CountryChecklistRow) => string | number
+> = {
+  name: (row) => row.name,
 };
 
 function slug(name: string): string {
@@ -21,6 +34,8 @@ function CountryTable({
   testId: string;
   emptyMessage: string;
 }) {
+  const { sort, sorted, onSort } = useTableSort(rows, CHECKLIST_ACCESSORS);
+
   return (
     <div data-testid={testId}>
       <h3 className="font-display text-base text-foreground">{title}</h3>
@@ -33,11 +48,19 @@ function CountryTable({
           <table className="w-full min-w-[12rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-muted">
-                <th className="pb-2 font-medium">Country / territory</th>
+                <SortableHeader
+                  label="Country / territory"
+                  columnKey="name"
+                  activeKey={sort?.key ?? null}
+                  direction={sort?.direction ?? null}
+                  onSort={onSort}
+                  className="pb-2 font-medium"
+                  testId={`${testId}-sort-name`}
+                />
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {sorted.map((row) => (
                 <tr
                   key={row.name}
                   className="border-b border-border/60"

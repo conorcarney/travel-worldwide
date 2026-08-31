@@ -7,32 +7,7 @@ import {
 
 /** Extract a calendar year from the mixed date strings in Atlas data. */
 export function parseYear(date: string): number | null {
-  const trimmed = date.trim();
-  if (!trimmed) return null;
-
-  // MAPS.ME: "2022/08/26 14:54:36+00"
-  const mapsMe = trimmed.match(/^(\d{4})\/\d{1,2}\/\d{1,2}/);
-  if (mapsMe) {
-    const year = Number(mapsMe[1]);
-    return Number.isFinite(year) ? year : null;
-  }
-
-  // ISO-ish: "2019-08-12"
-  const iso = trimmed.match(/^(\d{4})-\d{2}-\d{2}/);
-  if (iso) {
-    const year = Number(iso[1]);
-    return Number.isFinite(year) ? year : null;
-  }
-
-  // "19/01/2023" or "2/2020" or "11/2018"
-  const slashParts = trimmed.split(/[/\s]/).filter(Boolean);
-  const last = slashParts[slashParts.length - 1];
-  if (last && /^\d{4}$/.test(last)) {
-    const year = Number(last);
-    return year >= 1900 && year <= 2100 ? year : null;
-  }
-
-  return null;
+  return parseYearMonth(date)?.year ?? null;
 }
 
 export function inYearRange(

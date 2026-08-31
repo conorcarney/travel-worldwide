@@ -5,6 +5,7 @@ import {
   normalizeSurfaceRoutes,
   normalizeVisited,
   parseLngLatString,
+  formatLngLatString,
   ROUTE_COLORS,
 } from "@/lib/map/normalize";
 
@@ -21,6 +22,23 @@ describe("parseLngLatString", () => {
     expect(parseLngLatString("")).toBeNull();
     expect(parseLngLatString("1")).toBeNull();
     expect(parseLngLatString("abc, def")).toBeNull();
+  });
+});
+
+describe("formatLngLatString", () => {
+  it("writes lng, lat", () => {
+    expect(formatLngLatString(-6.2603, 53.3498)).toBe("-6.2603, 53.3498");
+  });
+
+  it("formats numeric strings from Mongo the same way", () => {
+    expect(formatLngLatString("48.290025", "38.247557")).toBe(
+      "48.290025, 38.247557",
+    );
+  });
+
+  it("returns empty when a value is missing", () => {
+    expect(formatLngLatString("", 53.3498)).toBe("");
+    expect(formatLngLatString(-6.2603, undefined)).toBe("");
   });
 });
 

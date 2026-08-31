@@ -1,8 +1,15 @@
+"use client";
+
 import {
   formatRatingScore,
   formatReturnVisit,
   type CountryRatingRow,
 } from "@/lib/map/country-ratings";
+import { SortableHeader } from "@/components/admin/SortableHeader";
+import { useTableSort } from "@/lib/admin/use-table-sort";
+
+const STATS_TH = "pb-2 pr-3 font-medium";
+const NULL_SCORE = Number.NEGATIVE_INFINITY;
 
 function scoreCell(value: number | null, digits = 2) {
   return (
@@ -16,7 +23,62 @@ type CountryRatingsStatsProps = {
   rows: CountryRatingRow[];
 };
 
+type RatingSortKey =
+  | "name"
+  | "continent"
+  | "culture"
+  | "entertainment"
+  | "landscapes"
+  | "price"
+  | "easeOfEntry"
+  | "food"
+  | "experiences"
+  | "drivers"
+  | "roads"
+  | "rating"
+  | "returnVisit"
+  | "reason";
+
+const RATING_ACCESSORS: Record<
+  RatingSortKey,
+  (row: CountryRatingRow) => string | number
+> = {
+  name: (row) => row.name,
+  continent: (row) => row.continent,
+  culture: (row) => row.culture,
+  entertainment: (row) => row.entertainment,
+  landscapes: (row) => row.landscapes,
+  price: (row) => row.price,
+  easeOfEntry: (row) => row.easeOfEntry,
+  food: (row) => row.food,
+  experiences: (row) => row.experiences,
+  drivers: (row) => row.drivers ?? NULL_SCORE,
+  roads: (row) => row.roads ?? NULL_SCORE,
+  rating: (row) => row.rating ?? NULL_SCORE,
+  returnVisit: (row) => formatReturnVisit(row.returnVisit),
+  reason: (row) => row.reason,
+};
+
+const RATING_COLUMNS: { key: RatingSortKey; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "continent", label: "Continent" },
+  { key: "culture", label: "Culture" },
+  { key: "entertainment", label: "Entertainment" },
+  { key: "landscapes", label: "Landscapes" },
+  { key: "price", label: "Price" },
+  { key: "easeOfEntry", label: "Ease of entry" },
+  { key: "food", label: "Food" },
+  { key: "experiences", label: "Experiences" },
+  { key: "drivers", label: "Drivers" },
+  { key: "roads", label: "Roads" },
+  { key: "rating", label: "Rating" },
+  { key: "returnVisit", label: "Return" },
+  { key: "reason", label: "Reason" },
+];
+
 export function CountryRatingsStats({ rows }: CountryRatingsStatsProps) {
+  const { sort, sorted, onSort } = useTableSort(rows, RATING_ACCESSORS);
+
   return (
     <div className="mt-8 space-y-6" data-testid="country-ratings-stats">
       <section>
@@ -32,24 +94,26 @@ export function CountryRatingsStats({ rows }: CountryRatingsStatsProps) {
           <table className="w-full min-w-[72rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-muted">
-                <th className="pb-2 pr-3 font-medium">Name</th>
-                <th className="pb-2 pr-3 font-medium">Continent</th>
-                <th className="pb-2 pr-3 font-medium">Culture</th>
-                <th className="pb-2 pr-3 font-medium">Entertainment</th>
-                <th className="pb-2 pr-3 font-medium">Landscapes</th>
-                <th className="pb-2 pr-3 font-medium">Price</th>
-                <th className="pb-2 pr-3 font-medium">Ease of entry</th>
-                <th className="pb-2 pr-3 font-medium">Food</th>
-                <th className="pb-2 pr-3 font-medium">Experiences</th>
-                <th className="pb-2 pr-3 font-medium">Drivers</th>
-                <th className="pb-2 pr-3 font-medium">Roads</th>
-                <th className="pb-2 pr-3 font-medium">Rating</th>
-                <th className="pb-2 pr-3 font-medium">Return</th>
-                <th className="pb-2 font-medium">Reason</th>
+                {RATING_COLUMNS.map((column, index) => (
+                  <SortableHeader
+                    key={column.key}
+                    label={column.label}
+                    columnKey={column.key}
+                    activeKey={sort?.key ?? null}
+                    direction={sort?.direction ?? null}
+                    onSort={onSort}
+                    className={
+                      index === RATING_COLUMNS.length - 1
+                        ? "pb-2 font-medium"
+                        : STATS_TH
+                    }
+                    testId={`country-ratings-sort-${column.key}`}
+                  />
+                ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {sorted.map((row) => (
                 <tr
                   key={`${row.name}-${row.continent}`}
                   className="border-b border-border/60 align-top"

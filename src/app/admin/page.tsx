@@ -59,6 +59,17 @@ export default function AdminPage() {
         </li>
         <li>
           <Link
+            href="/admin/passat-border-crossings"
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            Passat border crossings
+          </Link>
+          <span className="ml-2 text-sm text-muted">
+            Road-trip border names, dates, and crossing times
+          </span>
+        </li>
+        <li>
+          <Link
             href="/admin/blogs"
             className="text-accent underline-offset-2 hover:underline"
           >

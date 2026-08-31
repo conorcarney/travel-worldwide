@@ -16,6 +16,7 @@ import {
 describe("parseYear", () => {
   it("parses DD/MM/YYYY and M/YYYY route dates", () => {
     expect(parseYear("19/01/2023")).toBe(2023);
+    expect(parseYear("19/01/2023 14:30")).toBe(2023);
     expect(parseYear("2/2020")).toBe(2020);
     expect(parseYear("11/2018")).toBe(2018);
   });

@@ -14,7 +14,8 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "seed:country-ratings": "npx tsx scripts/seed-country-ratings.ts"
+    "seed:country-ratings": "npx tsx scripts/seed-country-ratings.ts",
+    "seed:passat-border-crossings": "npx tsx scripts/seed-passat-border-crossings.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1115.0",

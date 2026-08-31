@@ -1,13 +1,25 @@
+"use client";
+
 import {
   formatPassatEur,
   formatPassatNumber,
-  PASSAT_AMOUNTS_TO_ADD,
   PASSAT_BREAKDOWN_ROWS,
   PASSAT_BREAKDOWN_TOTAL_EUR,
   PASSAT_COUNTRY_ROWS,
   PASSAT_COUNTRY_TOTALS,
+  type PassatBreakdownRow,
   type PassatCountryRow,
 } from "@/lib/map/passat-road-trip";
+import {
+  crossingTimeMinutes,
+  displayBorderField,
+  type PassatBorderCrossingRow,
+} from "@/lib/map/passat-border-crossings";
+import { dateSortKey } from "@/lib/admin/table-sort";
+import { SortableHeader } from "@/components/admin/SortableHeader";
+import { useTableSort } from "@/lib/admin/use-table-sort";
+
+const STATS_TH = "pb-2 pr-3 font-medium";
 
 function CountryCells({ row, strong = false }: { row: PassatCountryRow; strong?: boolean }) {
   const cell = strong
@@ -37,8 +49,91 @@ function CountryCells({ row, strong = false }: { row: PassatCountryRow; strong?:
   );
 }
 
-export function PassatRoadTripStats() {
-  const tollsToAdd = PASSAT_AMOUNTS_TO_ADD.tollsEur.reduce((sum, value) => sum + value, 0);
+type PassatCountrySortKey = keyof PassatCountryRow;
+
+const PASSAT_COUNTRY_ACCESSORS: Record<
+  PassatCountrySortKey,
+  (row: PassatCountryRow) => string | number
+> = {
+  country: (row) => row.country,
+  totalKms: (row) => row.totalKms,
+  daysSpent: (row) => row.daysSpent,
+  tanksFilled: (row) => row.tanksFilled,
+  averagePricePerLitreEur: (row) => row.averagePricePerLitreEur,
+  dieselSpentEur: (row) => row.dieselSpentEur,
+  tollsEur: (row) => row.tollsEur,
+  insuranceEur: (row) => row.insuranceEur,
+  otherEntryFeesEur: (row) => row.otherEntryFeesEur,
+  finesEur: (row) => row.finesEur,
+  carPartsEur: (row) => row.carPartsEur,
+  totalEur: (row) => row.totalEur,
+};
+
+const PASSAT_COUNTRY_COLUMNS: { key: PassatCountrySortKey; label: string }[] = [
+  { key: "country", label: "Country" },
+  { key: "totalKms", label: "Total km" },
+  { key: "daysSpent", label: "Days" },
+  { key: "tanksFilled", label: "Tanks" },
+  { key: "averagePricePerLitreEur", label: "Avg €/L" },
+  { key: "dieselSpentEur", label: "Diesel" },
+  { key: "tollsEur", label: "Tolls" },
+  { key: "insuranceEur", label: "Insurance" },
+  { key: "otherEntryFeesEur", label: "Entry fees" },
+  { key: "finesEur", label: "Fines" },
+  { key: "carPartsEur", label: "Car parts" },
+  { key: "totalEur", label: "Total" },
+];
+
+type PassatBreakdownSortKey = "part" | "country" | "fixed" | "priceEur";
+
+const PASSAT_BREAKDOWN_ACCESSORS: Record<
+  PassatBreakdownSortKey,
+  (row: PassatBreakdownRow) => string | number
+> = {
+  part: (row) => row.part,
+  country: (row) => row.country,
+  fixed: (row) => (row.fixed ? 1 : 0),
+  priceEur: (row) => row.priceEur,
+};
+
+type BorderCrossingSortKey =
+  | "departureCountry"
+  | "entryCountry"
+  | "borderName"
+  | "date"
+  | "entryTime"
+  | "totalCrossingTime";
+
+const BORDER_CROSSING_ACCESSORS: Record<
+  BorderCrossingSortKey,
+  (row: PassatBorderCrossingRow) => string | number
+> = {
+  departureCountry: (row) => row.departureCountry,
+  entryCountry: (row) => row.entryCountry,
+  borderName: (row) => row.borderName,
+  date: (row) => (row.date ? dateSortKey(row.date) : "99999999999999"),
+  entryTime: (row) => row.entryTime || "99:99",
+  totalCrossingTime: (row) => crossingTimeMinutes(row.totalCrossingTime),
+};
+
+const BORDER_CROSSING_COLUMNS: { key: BorderCrossingSortKey; label: string }[] =
+  [
+    { key: "departureCountry", label: "Departure country" },
+    { key: "entryCountry", label: "Entry country" },
+    { key: "borderName", label: "Border name" },
+    { key: "date", label: "Date" },
+    { key: "entryTime", label: "Entry time" },
+    { key: "totalCrossingTime", label: "Total crossing time" },
+  ];
+
+export function PassatRoadTripStats({
+  borderCrossings,
+}: {
+  borderCrossings: PassatBorderCrossingRow[];
+}) {
+  const countrySort = useTableSort(PASSAT_COUNTRY_ROWS, PASSAT_COUNTRY_ACCESSORS);
+  const breakdownSort = useTableSort(PASSAT_BREAKDOWN_ROWS, PASSAT_BREAKDOWN_ACCESSORS);
+  const crossingSort = useTableSort(borderCrossings, BORDER_CROSSING_ACCESSORS);
 
   return (
     <div className="mt-8 space-y-10" data-testid="passat-road-trip-stats">
@@ -74,22 +169,26 @@ export function PassatRoadTripStats() {
           <table className="w-full min-w-[64rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-muted">
-                <th className="pb-2 pr-3 font-medium">Country</th>
-                <th className="pb-2 pr-3 font-medium">Total km</th>
-                <th className="pb-2 pr-3 font-medium">Days</th>
-                <th className="pb-2 pr-3 font-medium">Tanks</th>
-                <th className="pb-2 pr-3 font-medium">Avg €/L</th>
-                <th className="pb-2 pr-3 font-medium">Diesel</th>
-                <th className="pb-2 pr-3 font-medium">Tolls</th>
-                <th className="pb-2 pr-3 font-medium">Insurance</th>
-                <th className="pb-2 pr-3 font-medium">Entry fees</th>
-                <th className="pb-2 pr-3 font-medium">Fines</th>
-                <th className="pb-2 pr-3 font-medium">Car parts</th>
-                <th className="pb-2 font-medium">Total</th>
+                {PASSAT_COUNTRY_COLUMNS.map((column, index) => (
+                  <SortableHeader
+                    key={column.key}
+                    label={column.label}
+                    columnKey={column.key}
+                    activeKey={countrySort.sort?.key ?? null}
+                    direction={countrySort.sort?.direction ?? null}
+                    onSort={countrySort.onSort}
+                    className={
+                      index === PASSAT_COUNTRY_COLUMNS.length - 1
+                        ? "pb-2 font-medium"
+                        : STATS_TH
+                    }
+                    testId={`passat-country-sort-${column.key}`}
+                  />
+                ))}
               </tr>
             </thead>
             <tbody>
-              {PASSAT_COUNTRY_ROWS.map((row) => (
+              {countrySort.sorted.map((row) => (
                 <tr
                   key={row.country}
                   className="border-b border-border/60"
@@ -119,14 +218,46 @@ export function PassatRoadTripStats() {
           <table className="w-full min-w-[28rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-muted">
-                <th className="pb-2 pr-4 font-medium">Bits broken</th>
-                <th className="pb-2 pr-4 font-medium">Country</th>
-                <th className="pb-2 pr-4 font-medium">Fixed</th>
-                <th className="pb-2 font-medium">Price</th>
+                <SortableHeader
+                  label="Bits broken"
+                  columnKey="part"
+                  activeKey={breakdownSort.sort?.key ?? null}
+                  direction={breakdownSort.sort?.direction ?? null}
+                  onSort={breakdownSort.onSort}
+                  className={STATS_TH}
+                  testId="passat-breakdown-sort-part"
+                />
+                <SortableHeader
+                  label="Country"
+                  columnKey="country"
+                  activeKey={breakdownSort.sort?.key ?? null}
+                  direction={breakdownSort.sort?.direction ?? null}
+                  onSort={breakdownSort.onSort}
+                  className={STATS_TH}
+                  testId="passat-breakdown-sort-country"
+                />
+                <SortableHeader
+                  label="Fixed"
+                  columnKey="fixed"
+                  activeKey={breakdownSort.sort?.key ?? null}
+                  direction={breakdownSort.sort?.direction ?? null}
+                  onSort={breakdownSort.onSort}
+                  className={STATS_TH}
+                  testId="passat-breakdown-sort-fixed"
+                />
+                <SortableHeader
+                  label="Price"
+                  columnKey="priceEur"
+                  activeKey={breakdownSort.sort?.key ?? null}
+                  direction={breakdownSort.sort?.direction ?? null}
+                  onSort={breakdownSort.onSort}
+                  className="pb-2 font-medium"
+                  testId="passat-breakdown-sort-price"
+                />
               </tr>
             </thead>
             <tbody>
-              {PASSAT_BREAKDOWN_ROWS.map((row, index) => (
+              {breakdownSort.sorted.map((row, index) => (
                 <tr
                   key={`${row.part}-${row.country}-${index}`}
                   className="border-b border-border/60"
@@ -153,6 +284,71 @@ export function PassatRoadTripStats() {
               </tr>
             </tfoot>
           </table>
+        </div>
+      </section>
+
+      <section data-testid="passat-border-crossings">
+        <h2 className="font-display text-lg text-foreground">
+          Border crossing times
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Time spent at each land border on the Passat road trip.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted">
+                {BORDER_CROSSING_COLUMNS.map((column, index) => (
+                  <SortableHeader
+                    key={column.key}
+                    label={column.label}
+                    columnKey={column.key}
+                    activeKey={crossingSort.sort?.key ?? null}
+                    direction={crossingSort.sort?.direction ?? null}
+                    onSort={crossingSort.onSort}
+                    className={
+                      index === BORDER_CROSSING_COLUMNS.length - 1
+                        ? "pb-2 font-medium"
+                        : STATS_TH
+                    }
+                    testId={`passat-border-sort-${column.key}`}
+                  />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {crossingSort.sorted.map((row) => (
+                <tr
+                  key={`${row.sortIndex}-${row.departureCountry}-${row.entryCountry}-${row.date}`}
+                  className="border-b border-border/60"
+                >
+                  <td className="py-2.5 pr-3 text-foreground">
+                    {row.departureCountry}
+                  </td>
+                  <td className="py-2.5 pr-3 text-foreground">
+                    {row.entryCountry}
+                  </td>
+                  <td className="py-2.5 pr-3 text-muted">
+                    {displayBorderField(row.borderName)}
+                  </td>
+                  <td className="py-2.5 pr-3 tabular-nums text-foreground">
+                    {displayBorderField(row.date)}
+                  </td>
+                  <td className="py-2.5 pr-3 tabular-nums text-foreground">
+                    {displayBorderField(row.entryTime)}
+                  </td>
+                  <td className="py-2.5 tabular-nums text-foreground">
+                    {row.totalCrossingTime}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {borderCrossings.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">
+              No border crossings recorded yet.
+            </p>
+          ) : null}
         </div>
       </section>
     </div>

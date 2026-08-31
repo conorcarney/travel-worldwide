@@ -236,7 +236,8 @@ export function FlightsAdmin() {
         <p className="mt-2 text-sm text-muted">
           Add, edit, or delete flight routes. Coordinates use{" "}
           <code className="text-foreground">lng, lat</code> (e.g.{" "}
-          <code className="text-foreground">-6.2603, 53.3498</code>).
+          <code className="text-foreground">-6.2603, 53.3498</code>). Dates can
+          include a 24-hour time (e.g. 19/01/2023 14:30).
         </p>
       </div>
 
@@ -282,12 +283,12 @@ export function FlightsAdmin() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
-          Date
+          Date and time
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
             value={form.date}
             onChange={(event) => updateField("date", event.target.value)}
-            placeholder="19/01/2023 or 2/2020"
+            placeholder="19/01/2023 14:30 or 2/2020"
             data-testid="flight-date"
             required
           />
@@ -414,7 +415,7 @@ export function FlightsAdmin() {
               <thead className="bg-surface text-muted">
                 <tr>
                   <SortableHeader
-                    label="Date"
+                    label="Date / time"
                     columnKey="date"
                     activeKey={sort?.key ?? null}
                     direction={sort?.direction ?? null}
@@ -502,6 +503,7 @@ export function FlightsAdmin() {
                           }
                           onSave={() => void saveRow()}
                           onCancel={cancelEdit}
+                          className="min-w-[11rem]"
                           data-testid="flight-inline-date"
                         />
                       </td>

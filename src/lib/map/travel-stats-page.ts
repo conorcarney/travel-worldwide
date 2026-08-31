@@ -2,6 +2,7 @@ import type { MapRoute, MongoFlight, MongoVisited } from "@/lib/validations/map-
 import { summarizeTravelStats, type TravelStatsSummary } from "@/lib/map/distance";
 import { mongoFlightSchema } from "@/lib/validations/map-data";
 import { dateOrderKey } from "@/lib/map/timeline";
+import { parseTripDate } from "@/lib/trip-date";
 import { summarizeNewCountriesByYear, type CountriesByYearRow } from "@/lib/map/visited-stats";
 
 /** UN member states (general assembly). */
@@ -143,12 +144,18 @@ function isHomePlace(place: string): boolean {
 }
 
 function parseCalendarDate(date: string): Date | null {
-  const key = dateOrderKey(date);
-  if (!Number.isFinite(key) || key === Number.POSITIVE_INFINITY) return null;
-  const year = Math.floor(key / 10000);
-  const month = Math.floor((key % 10000) / 100);
-  const day = key % 100;
-  return new Date(Date.UTC(year, month - 1, day));
+  const parsed = parseTripDate(date);
+  if (!parsed) return null;
+  return new Date(
+    Date.UTC(
+      parsed.year,
+      parsed.month - 1,
+      parsed.day ?? 1,
+      parsed.hour ?? 0,
+      parsed.minute ?? 0,
+      parsed.second ?? 0,
+    ),
+  );
 }
 
 function daysBetween(start: Date, end: Date): number {

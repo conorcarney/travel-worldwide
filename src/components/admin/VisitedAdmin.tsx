@@ -314,6 +314,7 @@ export function VisitedAdmin() {
           Add, rename, or remove countries from your visited list. Names should
           match the map country names where possible. Use first visited for the
           earliest trip, and other visit dates for later comma-separated dates.
+          Dates can include a 24-hour time (e.g. 19/01/2023 14:30).
         </p>
       </div>
 
@@ -355,7 +356,7 @@ export function VisitedAdmin() {
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
             value={form.date}
             onChange={(event) => updateField("date", event.target.value)}
-            placeholder="06/2018 or 19/01/2023"
+            placeholder="06/2018 or 19/01/2023 14:30"
             data-testid="visited-date"
           />
         </label>
@@ -368,7 +369,7 @@ export function VisitedAdmin() {
             onChange={(event) =>
               updateField("other_visit_dates", event.target.value)
             }
-            placeholder="08/2020, 03/2022, 19/01/2023"
+            placeholder="08/2020, 03/2022, 19/01/2023 14:30"
             data-testid="visited-other-dates"
           />
         </label>
@@ -448,7 +449,7 @@ export function VisitedAdmin() {
                         className="border-t border-border text-foreground"
                       >
                         <td className="px-3 py-2 align-top">{item.name}</td>
-                        <td className="px-3 py-2 align-top text-muted">
+                        <td className="px-3 py-2 align-top whitespace-nowrap text-muted">
                           {item.date || "—"}
                         </td>
                         <td className="px-3 py-2 align-top text-muted">
@@ -500,6 +501,7 @@ export function VisitedAdmin() {
                           }
                           onSave={() => void saveRow()}
                           onCancel={cancelEdit}
+                          className="min-w-[11rem]"
                           data-testid="visited-inline-date"
                         />
                       </td>

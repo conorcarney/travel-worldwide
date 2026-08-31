@@ -12,7 +12,7 @@ export const mediaUploadRequestSchema = z.object({
     .int()
     .positive()
     .max(MAX_TRIP_MEDIA_BYTES, "File is too large (80 MB max)"),
-  tripDate: z.string().trim().max(40).optional(),
+  tripDate: z.string().trim().max(64).optional(),
 });
 
 export type MediaUploadRequest = z.infer<typeof mediaUploadRequestSchema>;

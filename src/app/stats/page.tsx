@@ -14,11 +14,13 @@ import {
 } from "@/lib/map/country-checklist";
 import { normalizeCountryList } from "@/lib/map/countries";
 import { normalizeCountryRatings } from "@/lib/map/country-ratings";
+import { normalizePassatBorderCrossings } from "@/lib/map/passat-border-crossings";
 import {
   normalizeFlights,
   normalizeSurfaceRoutes,
   normalizeVisited,
 } from "@/lib/map/normalize";
+import { ensurePassatBorderCrossingsSeeded } from "@/lib/passat-border-crossings-store";
 import { buildExtendedTravelStatistics } from "@/lib/map/travel-stats-page";
 
 export const metadata: Metadata = {
@@ -34,12 +36,16 @@ export default async function StatsPage() {
     visitedPayload,
     countryListPayload,
     countryRatingsPayload,
+    borderCrossingsPayload,
   ] = await Promise.all([
     loadCollection("flights"),
     loadCollection("busesTrainsAndFerries"),
     loadCollection("visited"),
     loadCollection("countryList"),
     loadCollection("countryRatings"),
+    ensurePassatBorderCrossingsSeeded().then(() =>
+      loadCollection("passatBorderCrossings"),
+    ),
   ]);
 
   const routes = [
@@ -51,6 +57,9 @@ export default async function StatsPage() {
   const countryChecklist = buildCountryChecklist(countries, visited);
   const checklistSummary = summarizeCountryChecklist(countryChecklist);
   const countryRatings = normalizeCountryRatings(countryRatingsPayload.data);
+  const borderCrossings = normalizePassatBorderCrossings(
+    borderCrossingsPayload.data,
+  );
 
   const statistics = buildExtendedTravelStatistics({
     routes,
@@ -80,7 +89,7 @@ export default async function StatsPage() {
             <CountriesByYearTable countriesByYear={countriesByYear} />
           </>
         }
-        passat={<PassatRoadTripStats />}
+        passat={<PassatRoadTripStats borderCrossings={borderCrossings} />}
         ratings={<CountryRatingsStats rows={countryRatings} />}
       />
     </main>

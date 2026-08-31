@@ -1,3 +1,5 @@
+import { formatClock, parseTripDate, tripDateOrderKey } from "@/lib/trip-date";
+
 export type YearMonth = {
   year: number;
   month: number; // 1–12
@@ -44,37 +46,25 @@ export function parseNamedMonthYear(value: string): YearMonth | null {
   return toYearMonth(Number(match[2]), month);
 }
 
-/** Human-readable trip date for titles (e.g. "10 Aug 2019"). */
+function toYearMonth(year: number, month: number): YearMonth | null {
+  if (!Number.isFinite(year) || year < 1900 || year > 2100) return null;
+  if (!Number.isFinite(month) || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+/** Human-readable trip date for titles (e.g. "10 Aug 2019" or "10 Aug 2019, 14:30"). */
 export function formatTripDate(date: string): string {
   const trimmed = date.trim();
   if (!trimmed) return "";
 
-  const mapsMe = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (mapsMe) {
-    return formatDayMonthYear(
-      Number(mapsMe[3]),
-      Number(mapsMe[2]),
-      Number(mapsMe[1]),
-    );
-  }
+  const parsed = parseTripDate(trimmed);
+  if (!parsed) return trimmed;
 
-  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    return formatDayMonthYear(Number(iso[3]), Number(iso[2]), Number(iso[1]));
-  }
-
-  const dayMonthYear = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dayMonthYear) {
-    return formatDayMonthYear(
-      Number(dayMonthYear[1]),
-      Number(dayMonthYear[2]),
-      Number(dayMonthYear[3]),
-    );
-  }
-
-  const parsed = parseYearMonth(trimmed);
-  if (parsed) return formatYearMonth(parsed);
-  return trimmed;
+  const dateLabel = parsed.day
+    ? formatDayMonthYear(parsed.day, parsed.month, parsed.year)
+    : formatYearMonth({ year: parsed.year, month: parsed.month });
+  const clock = formatClock(parsed);
+  return clock ? `${dateLabel}, ${clock}` : dateLabel;
 }
 
 function formatDayMonthYear(day: number, month: number, year: number): string {
@@ -84,45 +74,13 @@ function formatDayMonthYear(day: number, month: number, year: number): string {
 
 /**
  * Parse mixed Atlas date strings to year+month.
- * Supports MAPS.ME, ISO, DD/MM/YYYY, and M/YYYY.
+ * Supports MAPS.ME, ISO, DD/MM/YYYY (with optional time), and M/YYYY.
  * Year-only values land in January of that year.
  */
 export function parseYearMonth(date: string): YearMonth | null {
-  const trimmed = date.trim();
-  if (!trimmed) return null;
-
-  const mapsMe = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (mapsMe) {
-    return toYearMonth(Number(mapsMe[1]), Number(mapsMe[2]));
-  }
-
-  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    return toYearMonth(Number(iso[1]), Number(iso[2]));
-  }
-
-  const dayMonthYear = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dayMonthYear) {
-    return toYearMonth(Number(dayMonthYear[3]), Number(dayMonthYear[2]));
-  }
-
-  const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
-  if (monthYear) {
-    return toYearMonth(Number(monthYear[2]), Number(monthYear[1]));
-  }
-
-  const yearOnly = trimmed.match(/^(\d{4})$/);
-  if (yearOnly) {
-    return toYearMonth(Number(yearOnly[1]), 1);
-  }
-
-  return null;
-}
-
-function toYearMonth(year: number, month: number): YearMonth | null {
-  if (!Number.isFinite(year) || year < 1900 || year > 2100) return null;
-  if (!Number.isFinite(month) || month < 1 || month > 12) return null;
-  return { year, month };
+  const parsed = parseTripDate(date);
+  if (!parsed) return null;
+  return { year: parsed.year, month: parsed.month };
 }
 
 export function isOnOrBefore(
@@ -179,47 +137,11 @@ export function isInYearMonth(date: string, month: YearMonth): boolean {
 }
 
 /**
- * Numeric YYYYMMDD key for chronological ordering within a month.
- * Undated / unparseable values sort last.
+ * Numeric YYYYMMDDHHMMSS key for chronological ordering within a month.
+ * Date-only values sort as midnight. Undated / unparseable values sort last.
  */
 export function dateOrderKey(date: string): number {
-  const trimmed = date.trim();
-  if (!trimmed) return Number.POSITIVE_INFINITY;
-
-  const mapsMe = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (mapsMe) {
-    return toDayKey(Number(mapsMe[1]), Number(mapsMe[2]), Number(mapsMe[3]));
-  }
-
-  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) {
-    return toDayKey(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-  }
-
-  const dayMonthYear = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dayMonthYear) {
-    return toDayKey(
-      Number(dayMonthYear[3]),
-      Number(dayMonthYear[2]),
-      Number(dayMonthYear[1]),
-    );
-  }
-
-  const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
-  if (monthYear) {
-    return toDayKey(Number(monthYear[2]), Number(monthYear[1]), 1);
-  }
-
-  const yearOnly = trimmed.match(/^(\d{4})$/);
-  if (yearOnly) {
-    return toDayKey(Number(yearOnly[1]), 1, 1);
-  }
-
-  return Number.POSITIVE_INFINITY;
-}
-
-function toDayKey(year: number, month: number, day: number): number {
-  return year * 10000 + month * 100 + day;
+  return tripDateOrderKey(date);
 }
 
 export function compareByDateThenId(

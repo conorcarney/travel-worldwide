@@ -19,6 +19,7 @@ import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { paginateRows } from "@/lib/admin/pagination";
 import { filterRowsByQuery } from "@/lib/admin/search";
+import { formatLngLatString, parseLngLatString } from "@/lib/map/normalize";
 import { mediaCountLabel } from "@/lib/map/trip-media";
 import {
   SURFACE_ROUTE_TYPES,
@@ -33,10 +34,8 @@ type LandRouteSortKey = "type" | "date" | "route" | "tags";
 type SurfaceRouteFormState = {
   departure: string;
   arrival: string;
-  departure_longitude: string;
-  departure_latitude: string;
-  arrival_longitude: string;
-  arrival_latitude: string;
+  departure_coordinates: string;
+  arrival_coordinates: string;
   type: SurfaceRouteWriteInput["type"];
   date: string;
   tags: string;
@@ -46,10 +45,8 @@ type SurfaceRouteFormState = {
 const EMPTY_FORM_STATE: SurfaceRouteFormState = {
   departure: "",
   arrival: "",
-  departure_longitude: "",
-  departure_latitude: "",
-  arrival_longitude: "",
-  arrival_latitude: "",
+  departure_coordinates: "",
+  arrival_coordinates: "",
   type: "Train",
   date: "",
   tags: "",
@@ -60,10 +57,14 @@ function toFormState(route: SurfaceRouteRecord): SurfaceRouteFormState {
   return {
     departure: route.departure ?? "",
     arrival: route.arrival ?? "",
-    departure_longitude: String(route.departure_longitude ?? ""),
-    departure_latitude: String(route.departure_latitude ?? ""),
-    arrival_longitude: String(route.arrival_longitude ?? ""),
-    arrival_latitude: String(route.arrival_latitude ?? ""),
+    departure_coordinates: formatLngLatString(
+      route.departure_longitude,
+      route.departure_latitude,
+    ),
+    arrival_coordinates: formatLngLatString(
+      route.arrival_longitude,
+      route.arrival_latitude,
+    ),
     type: route.type,
     date: route.date ?? "",
     tags: route.tags ?? "",
@@ -71,14 +72,22 @@ function toFormState(route: SurfaceRouteRecord): SurfaceRouteFormState {
   };
 }
 
+const COORDINATE_PAIR_MESSAGE =
+  "Use coordinates as lng, lat (e.g. -6.2603, 53.3498)";
+
 function formStateToPayload(form: SurfaceRouteFormState) {
+  const departure = parseLngLatString(form.departure_coordinates);
+  const arrival = parseLngLatString(form.arrival_coordinates);
+  if (!departure || !arrival) {
+    return null;
+  }
   return {
     departure: form.departure,
     arrival: form.arrival,
-    departure_longitude: form.departure_longitude,
-    departure_latitude: form.departure_latitude,
-    arrival_longitude: form.arrival_longitude,
-    arrival_latitude: form.arrival_latitude,
+    departure_latitude: departure[0],
+    departure_longitude: departure[1],
+    arrival_latitude: arrival[0],
+    arrival_longitude: arrival[1],
     type: form.type,
     date: form.date,
     tags: form.tags,
@@ -206,7 +215,12 @@ export function LandRoutesAdmin() {
   }
 
   async function saveRecord(payload: SurfaceRouteFormState, id?: string) {
-    const parsed = surfaceRouteWriteSchema.safeParse(formStateToPayload(payload));
+    const mapped = formStateToPayload(payload);
+    if (!mapped) {
+      setMessage(COORDINATE_PAIR_MESSAGE);
+      return false;
+    }
+    const parsed = surfaceRouteWriteSchema.safeParse(mapped);
     if (!parsed.success) {
       setMessage(parsed.error.issues[0]?.message ?? "Invalid route");
       return false;
@@ -295,7 +309,8 @@ export function LandRoutesAdmin() {
         </h1>
         <p className="mt-2 text-sm text-muted">
           Add, edit, or delete bus, train, ferry, and car routes. Coordinates
-          are decimal latitude/longitude numbers.
+          are lng, lat pairs, same as flights. Dates can include a 24-hour time
+          (e.g. 27/02/2019 14:30).
         </p>
       </div>
 
@@ -330,12 +345,12 @@ export function LandRoutesAdmin() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
-          Date
+          Date and time
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
             value={form.date}
             onChange={(event) => updateField("date", event.target.value)}
-            placeholder="27/02/2019"
+            placeholder="27/02/2019 14:30"
             data-testid="land-route-date"
             required
           />
@@ -364,57 +379,29 @@ export function LandRoutesAdmin() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
-          Departure latitude
+          Departure coordinates
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
-            value={form.departure_latitude}
+            value={form.departure_coordinates}
             onChange={(event) =>
-              updateField("departure_latitude", event.target.value)
+              updateField("departure_coordinates", event.target.value)
             }
-            placeholder="53.21588495"
-            data-testid="land-route-departure-latitude"
+            placeholder="-6.2603, 53.3498"
+            data-testid="land-route-departure-coordinates"
             required
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
-          Departure longitude
+          Arrival coordinates
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
-            value={form.departure_longitude}
+            value={form.arrival_coordinates}
             onChange={(event) =>
-              updateField("departure_longitude", event.target.value)
+              updateField("arrival_coordinates", event.target.value)
             }
-            placeholder="6.56982422"
-            data-testid="land-route-departure-longitude"
-            required
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm text-muted">
-          Arrival latitude
-          <input
-            className="rounded border border-border bg-background px-3 py-2 text-foreground"
-            value={form.arrival_latitude}
-            onChange={(event) =>
-              updateField("arrival_latitude", event.target.value)
-            }
-            placeholder="48.14087441"
-            data-testid="land-route-arrival-latitude"
-            required
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm text-muted">
-          Arrival longitude
-          <input
-            className="rounded border border-border bg-background px-3 py-2 text-foreground"
-            value={form.arrival_longitude}
-            onChange={(event) =>
-              updateField("arrival_longitude", event.target.value)
-            }
-            placeholder="11.57409668"
-            data-testid="land-route-arrival-longitude"
+            placeholder="11.57409668, 48.14087441"
+            data-testid="land-route-arrival-coordinates"
             required
           />
         </label>
@@ -519,7 +506,7 @@ export function LandRoutesAdmin() {
                     onSort={changeSort}
                   />
                   <SortableHeader
-                    label="Date"
+                    label="Date / time"
                     columnKey="date"
                     activeKey={sort?.key ?? null}
                     direction={sort?.direction ?? null}
@@ -563,9 +550,15 @@ export function LandRoutesAdmin() {
                           {landRouteLabel(route)}
                         </td>
                         <td className="px-3 py-2 align-top text-xs text-muted">
-                          {route.departure_latitude}, {route.departure_longitude}
+                          {formatLngLatString(
+                            route.departure_longitude,
+                            route.departure_latitude,
+                          )}
                           {" → "}
-                          {route.arrival_latitude}, {route.arrival_longitude}
+                          {formatLngLatString(
+                            route.arrival_longitude,
+                            route.arrival_latitude,
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top">
                           {route.tags || "—"}
@@ -627,6 +620,7 @@ export function LandRoutesAdmin() {
                           }
                           onSave={() => void saveRow()}
                           onCancel={cancelEdit}
+                          className="min-w-[11rem]"
                           data-testid="land-route-inline-date"
                         />
                       </td>
@@ -657,54 +651,33 @@ export function LandRoutesAdmin() {
                         </div>
                       </td>
                       <td className="px-3 py-2 align-top">
-                        <div className="grid grid-cols-2 gap-1">
-                          <AdminInlineField label="From lat">
+                        <div className="flex flex-col gap-1">
+                          <AdminInlineField label="From lng, lat">
                             <AdminInlineInput
-                              value={editing.departure_latitude}
+                              value={editing.departure_coordinates}
                               onChange={(event) =>
                                 updateRow(
-                                  "departure_latitude",
+                                  "departure_coordinates",
                                   event.target.value,
                                 )
                               }
                               onSave={() => void saveRow()}
                               onCancel={cancelEdit}
+                              data-testid="land-route-inline-departure-coordinates"
                             />
                           </AdminInlineField>
-                          <AdminInlineField label="From lng">
+                          <AdminInlineField label="To lng, lat">
                             <AdminInlineInput
-                              value={editing.departure_longitude}
+                              value={editing.arrival_coordinates}
                               onChange={(event) =>
                                 updateRow(
-                                  "departure_longitude",
+                                  "arrival_coordinates",
                                   event.target.value,
                                 )
                               }
                               onSave={() => void saveRow()}
                               onCancel={cancelEdit}
-                            />
-                          </AdminInlineField>
-                          <AdminInlineField label="To lat">
-                            <AdminInlineInput
-                              value={editing.arrival_latitude}
-                              onChange={(event) =>
-                                updateRow("arrival_latitude", event.target.value)
-                              }
-                              onSave={() => void saveRow()}
-                              onCancel={cancelEdit}
-                            />
-                          </AdminInlineField>
-                          <AdminInlineField label="To lng">
-                            <AdminInlineInput
-                              value={editing.arrival_longitude}
-                              onChange={(event) =>
-                                updateRow(
-                                  "arrival_longitude",
-                                  event.target.value,
-                                )
-                              }
-                              onSave={() => void saveRow()}
-                              onCancel={cancelEdit}
+                              data-testid="land-route-inline-arrival-coordinates"
                             />
                           </AdminInlineField>
                         </div>

@@ -37,8 +37,13 @@ describe("mediaObjectKey", () => {
 });
 
 describe("parseTripDateParts", () => {
-  it("reads DD/MM/YYYY trip dates", () => {
+  it("reads DD/MM/YYYY trip dates, including optional time", () => {
     expect(parseTripDateParts("19/01/2023")).toEqual({
+      year: 2023,
+      month: 1,
+      day: 19,
+    });
+    expect(parseTripDateParts("19/01/2023 14:30")).toEqual({
       year: 2023,
       month: 1,
       day: 19,

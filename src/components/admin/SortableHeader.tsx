@@ -8,6 +8,8 @@ type SortableHeaderProps<K extends string> = {
   activeKey: K | null;
   direction: SortDirection | null;
   onSort: (key: K) => void;
+  className?: string;
+  testId?: string;
 };
 
 export function SortableHeader<K extends string>({
@@ -16,12 +18,14 @@ export function SortableHeader<K extends string>({
   activeKey,
   direction,
   onSort,
+  className = "px-3 py-2 font-medium",
+  testId,
 }: SortableHeaderProps<K>) {
   const active = activeKey === columnKey;
 
   return (
     <th
-      className="px-3 py-2 font-medium"
+      className={className}
       aria-sort={
         active ? (direction === "asc" ? "ascending" : "descending") : "none"
       }
@@ -30,7 +34,7 @@ export function SortableHeader<K extends string>({
         type="button"
         className="inline-flex items-center gap-1 text-left transition-colors hover:text-foreground"
         onClick={() => onSort(columnKey)}
-        data-testid={`sort-${columnKey}`}
+        data-testid={testId ?? `sort-${columnKey}`}
       >
         {label}
         <span className="min-w-[0.75rem] text-xs opacity-80" aria-hidden>

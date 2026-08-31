@@ -32,10 +32,18 @@ describe("nextSortState", () => {
 
 describe("dateSortKey", () => {
   it("normalizes common admin date formats", () => {
-    expect(dateSortKey("19/01/2023")).toBe("20230119");
-    expect(dateSortKey("2/2020")).toBe("20200200");
-    expect(dateSortKey("2019-08-12")).toBe("20190812");
+    expect(dateSortKey("19/01/2023")).toBe("20230119000000");
+    expect(dateSortKey("2/2020")).toBe("20200200000000");
+    expect(dateSortKey("2019-08-12")).toBe("20190812000000");
     expect(dateSortKey("")).toBe("");
+  });
+
+  it("includes time so same-day rows sort chronologically", () => {
+    expect(dateSortKey("19/01/2023 08:15")).toBe("20230119081500");
+    expect(dateSortKey("19/01/2023 14:30")).toBe("20230119143000");
+    expect(dateSortKey("19/01/2023 08:15") < dateSortKey("20/01/2023")).toBe(
+      true,
+    );
   });
 });
 

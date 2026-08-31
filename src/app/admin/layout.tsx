@@ -2,11 +2,11 @@ import { auth } from "@/auth";
 import { isAdminSession } from "@/lib/authz";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: LayoutProps<"/admin">) {
   const session = await auth();
   if (!isAdminSession(session)) {
     redirect("/login?callbackUrl=/admin");
