@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { CountryChecklist } from "@/components/stats/CountryChecklist";
 import { CountryRatingsStats } from "@/components/stats/CountryRatingsStats";
 import { PassatRoadTripStats } from "@/components/stats/PassatRoadTripStats";
-import { StatisticsTabs } from "@/components/stats/StatisticsTabs";
+import { NewCountriesByYearChart } from "@/components/stats/NewCountriesByYearChart";
+import { StatisticsCarousel } from "@/components/stats/StatisticsCarousel";
 import {
-  CountriesByYearTable,
   StatisticsView,
 } from "@/components/stats/StatisticsView";
 import { loadCollection } from "@/lib/data";
@@ -21,6 +22,10 @@ import {
   normalizeVisited,
 } from "@/lib/map/normalize";
 import { buildExtendedTravelStatistics } from "@/lib/map/travel-stats-page";
+import {
+  STATISTICS_SLIDES,
+  type StatisticsSlideId,
+} from "@/lib/stats/statistics-slides";
 
 export const metadata: Metadata = {
   title: "Statistics",
@@ -63,7 +68,23 @@ export default async function StatsPage() {
     visited,
     flightsRaw: flightsPayload.data,
   });
-  const { countriesByYear, ...statisticsView } = statistics;
+  const { countriesByYear: _countriesByYear, ...statisticsView } = statistics;
+
+  const slideContent = {
+    overall: (
+      <>
+        <StatisticsView {...statisticsView} />
+        <CountryChecklist
+          rows={countryChecklist}
+          visitedCount={checklistSummary.visited}
+          totalCount={checklistSummary.total}
+        />
+        <NewCountriesByYearChart visited={visited} initialYear={2013} />
+      </>
+    ),
+    passat: <PassatRoadTripStats borderCrossings={borderCrossings} />,
+    ratings: <CountryRatingsStats rows={countryRatings} />,
+  } satisfies Record<StatisticsSlideId, ReactNode>;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6">
@@ -74,20 +95,11 @@ export default async function StatsPage() {
         All-time travel totals, countries visited, and your most frequent
         destinations.
       </p>
-      <StatisticsTabs
-        overall={
-          <>
-            <StatisticsView {...statisticsView} />
-            <CountryChecklist
-              rows={countryChecklist}
-              visitedCount={checklistSummary.visited}
-              totalCount={checklistSummary.total}
-            />
-            <CountriesByYearTable countriesByYear={countriesByYear} />
-          </>
-        }
-        passat={<PassatRoadTripStats borderCrossings={borderCrossings} />}
-        ratings={<CountryRatingsStats rows={countryRatings} />}
+      <StatisticsCarousel
+        slides={STATISTICS_SLIDES.map((slide) => ({
+          ...slide,
+          content: slideContent[slide.id],
+        }))}
       />
     </main>
   );

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LAYERS,
   DEFAULT_MAP_ZOOM,
+  buildCountryVisitMapHref,
   buildMapFilterQuery,
   clampFilterRange,
   parseMapFilterSearch,
@@ -164,5 +165,29 @@ describe("clampFilterRange", () => {
       start: { year: 2019, month: 6 },
       end: { year: 2022, month: 1 },
     });
+  });
+});
+
+describe("buildCountryVisitMapHref", () => {
+  it("sets the first-visit month and country tag", () => {
+    const href = buildCountryVisitMapHref("Hungary", "09/01/2013");
+    expect(href.startsWith("/map?")).toBe(true);
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams(href.slice("/map?".length)),
+    );
+    expect(parsed.from).toEqual({ year: 2013, month: 1 });
+    expect(parsed.to).toEqual({ year: 2013, month: 1 });
+    expect(parsed.tags).toEqual(["Hungary"]);
+  });
+
+  it("uses the visit month for a later first visit", () => {
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams(
+        buildCountryVisitMapHref("Germany", "01/10/2013").slice("/map?".length),
+      ),
+    );
+    expect(parsed.from).toEqual({ year: 2013, month: 10 });
+    expect(parsed.to).toEqual({ year: 2013, month: 10 });
+    expect(parsed.tags).toEqual(["Germany"]);
   });
 });

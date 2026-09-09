@@ -31,6 +31,15 @@ describe("briefBlogDescription", () => {
     expect(briefBlogDescription(long, 50).endsWith("…")).toBe(true);
     expect(briefBlogDescription(long, 50).length).toBeLessThanOrEqual(50);
   });
+
+  it("omits markdown image URLs from the excerpt", () => {
+    expect(
+      briefBlogDescription(
+        "Hello ![Budapest](https://example.com/a.jpg) there",
+        160,
+      ),
+    ).toBe("Hello Budapest there");
+  });
 });
 
 describe("blogWriteSchema", () => {

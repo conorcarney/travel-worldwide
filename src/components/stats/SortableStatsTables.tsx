@@ -7,7 +7,6 @@ import {
 import { ROUTE_COLORS } from "@/lib/map/normalize";
 import {
   modeStats,
-  type ExtendedTravelStatistics,
 } from "@/lib/map/travel-stats-page";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { useTableSort } from "@/lib/admin/use-table-sort";
@@ -49,16 +48,6 @@ const MODE_ACCESSORS: Record<ModeSortKey, (row: ModeRowData) => string | number>
     count: (row) => row.count,
     distanceKm: (row) => row.distanceKm,
   };
-
-type YearSortKey = "year" | "newCountries";
-
-const YEAR_ACCESSORS: Record<
-  YearSortKey,
-  (row: ExtendedTravelStatistics["countriesByYear"][number]) => string | number
-> = {
-  year: (row) => row.year,
-  newCountries: (row) => row.newCountries,
-};
 
 export function RankedTable({
   title,
@@ -222,75 +211,6 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
             </tr>
           </tfoot>
         </table>
-      </div>
-    </section>
-  );
-}
-
-export function CountriesByYearTable({
-  countriesByYear,
-}: {
-  countriesByYear: ExtendedTravelStatistics["countriesByYear"];
-}) {
-  const { sort, sorted, onSort } = useTableSort(countriesByYear, YEAR_ACCESSORS);
-
-  return (
-    <section className="mt-10" data-testid="countries-by-year">
-      <h2 className="font-display text-lg text-foreground">
-        New countries by year
-      </h2>
-      <p className="mt-1 text-sm text-muted">
-        First-time visits counted once, in the earliest year with a date.
-      </p>
-      <div className="mt-4 overflow-x-auto">
-        <table
-          className="w-full max-w-md text-left text-sm"
-          data-testid="countries-by-year-table"
-        >
-          <thead>
-            <tr className="border-b border-border text-muted">
-              <SortableHeader
-                label="Year"
-                columnKey="year"
-                activeKey={sort?.key ?? null}
-                direction={sort?.direction ?? null}
-                onSort={onSort}
-                className={STATS_TH}
-                testId="countries-by-year-sort-year"
-              />
-              <SortableHeader
-                label="New countries"
-                columnKey="newCountries"
-                activeKey={sort?.key ?? null}
-                direction={sort?.direction ?? null}
-                onSort={onSort}
-                className="pb-2 font-medium"
-                testId="countries-by-year-sort-count"
-              />
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((row) => (
-              <tr
-                key={row.year}
-                className="border-b border-border/60"
-                data-testid={`countries-by-year-${row.year}`}
-              >
-                <td className="py-2.5 pr-4 tabular-nums text-foreground">
-                  {row.year}
-                </td>
-                <td className="py-2.5 tabular-nums text-foreground">
-                  {row.newCountries.toLocaleString("en-GB")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {countriesByYear.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">
-            No dated country visits yet.
-          </p>
-        ) : null}
       </div>
     </section>
   );

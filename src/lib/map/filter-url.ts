@@ -3,7 +3,7 @@ import {
   PLAYBACK_SPEEDS,
   type PlaybackSpeedId,
 } from "@/lib/map/journey";
-import { yearMonthKey, type YearMonth } from "@/lib/map/timeline";
+import { parseYearMonth, yearMonthKey, type YearMonth } from "@/lib/map/timeline";
 import { clampYearMonth } from "@/lib/map/years";
 
 export type LayerVisibility = {
@@ -225,4 +225,17 @@ export function buildMapFilterQuery(input: {
   params.set("paused", input.paused ? "1" : "0");
 
   return params.toString();
+}
+
+/** Stats → map: first-visit month in the date filter, country as a trip tag. */
+export function buildCountryVisitMapHref(country: string, date: string): string {
+  const params = new URLSearchParams();
+  const month = parseYearMonth(date);
+  if (month) {
+    params.set("from", formatYearMonthParam(month));
+    params.set("to", formatYearMonthParam(month));
+  }
+  const tag = country.trim();
+  if (tag) params.append("tag", tag);
+  return `/map?${params.toString()}`;
 }

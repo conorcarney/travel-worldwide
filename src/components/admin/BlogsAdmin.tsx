@@ -249,6 +249,13 @@ export function BlogsAdmin() {
             data-testid="blog-description"
             required
           />
+          <span className="text-xs text-muted">
+            Photos: put{" "}
+            <code className="text-foreground/80">
+              ![caption](https://…jpg)
+            </code>{" "}
+            on its own line, or paste the image URL on its own line.
+          </span>
         </label>
 
         <div className="flex flex-wrap gap-3 sm:col-span-2">

@@ -1,3 +1,4 @@
+import { stripBlogMarkdown } from "@/lib/blog-body";
 import { z } from "zod";
 
 export const blogWriteSchema = z.object({
@@ -45,7 +46,7 @@ export function briefBlogDescription(
   description: string,
   maxLength = 160,
 ): string {
-  const trimmed = description.trim().replace(/\s+/g, " ");
+  const trimmed = stripBlogMarkdown(description);
   if (trimmed.length <= maxLength) return trimmed;
   return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
 }

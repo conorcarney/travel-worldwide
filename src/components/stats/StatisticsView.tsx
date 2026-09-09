@@ -11,8 +11,6 @@ import {
   RankedTable,
 } from "@/components/stats/SortableStatsTables";
 
-export { CountriesByYearTable } from "@/components/stats/SortableStatsTables";
-
 type StatisticsViewProps = ExtendedTravelStatistics;
 
 function StatCard({

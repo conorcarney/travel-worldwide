@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BlogBody } from "@/components/blogs/BlogBody";
 import { loadPublicBlogBySlug } from "@/lib/blog-pages";
+import { stripBlogMarkdown } from "@/lib/blog-body";
 
 type BlogDetailPageProps = {
   params: Promise<{ slug: string }>;
@@ -17,7 +19,7 @@ export async function generateMetadata({
   }
   return {
     title: blog.blog_title,
-    description: blog.blog_description.slice(0, 160),
+    description: stripBlogMarkdown(blog.blog_description).slice(0, 160),
   };
 }
 
@@ -25,11 +27,6 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const { slug } = await params;
   const blog = await loadPublicBlogBySlug(slug);
   if (!blog) notFound();
-
-  const paragraphs = blog.blog_description
-    .split(/\n+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10 sm:px-6">
@@ -48,11 +45,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
         <h1 className="mt-2 font-display text-4xl tracking-tight text-foreground sm:text-5xl">
           {blog.blog_title}
         </h1>
-        <div className="mt-8 space-y-4 text-base leading-relaxed text-foreground/90">
-          {paragraphs.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-        </div>
+        <BlogBody description={blog.blog_description} />
       </article>
     </main>
   );
