@@ -30,6 +30,22 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("year-range-apply")).toBeVisible();
 });
 
+test("spacebar pauses and resumes map playback", async ({ page }) => {
+  await page.goto("/map");
+  const pause = page.getByTestId("playback-pause");
+  await expect(pause).toBeVisible({ timeout: 60_000 });
+  await expect(pause).toHaveAttribute("aria-pressed", "false");
+
+  await page.locator(".leaflet-container").click({ position: { x: 40, y: 40 } });
+  await page.keyboard.press("Space");
+  await expect(pause).toHaveAttribute("aria-pressed", "true");
+  await expect(pause).toHaveText("Play");
+
+  await page.keyboard.press("Space");
+  await expect(pause).toHaveAttribute("aria-pressed", "false");
+  await expect(pause).toHaveText("Pause");
+});
+
 test("map layer toggles and year filter update visible counts", async ({
   page,
 }) => {

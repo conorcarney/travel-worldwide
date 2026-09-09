@@ -1,6 +1,13 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   CircleMarker,
@@ -644,9 +651,33 @@ export default function TravelMap() {
     enableShowAll();
   }
 
-  function togglePlaybackPaused() {
+  const canTogglePlaybackPaused =
+    status === "ready" && !showAll && !playbackFinished;
+
+  const togglePlaybackPaused = useCallback(() => {
     setPlaybackPaused((current) => !current);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!canTogglePlaybackPaused) return;
+
+    function onKey(event: KeyboardEvent) {
+      if (event.code !== "Space" && event.key !== " ") return;
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      togglePlaybackPaused();
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canTogglePlaybackPaused, togglePlaybackPaused]);
 
   function skipBack() {
     if (showAll || playbackComplete) {
@@ -752,7 +783,7 @@ export default function TravelMap() {
                 <SkipBackIcon />
                 Back
               </button>
-              {!showAll && !playbackFinished ? (
+              {canTogglePlaybackPaused ? (
                 <button
                   type="button"
                   className={
