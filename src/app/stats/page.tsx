@@ -20,7 +20,6 @@ import {
   normalizeSurfaceRoutes,
   normalizeVisited,
 } from "@/lib/map/normalize";
-import { ensurePassatBorderCrossingsSeeded } from "@/lib/passat-border-crossings-store";
 import { buildExtendedTravelStatistics } from "@/lib/map/travel-stats-page";
 
 export const metadata: Metadata = {
@@ -43,9 +42,7 @@ export default async function StatsPage() {
     loadCollection("visited"),
     loadCollection("countryList"),
     loadCollection("countryRatings"),
-    ensurePassatBorderCrossingsSeeded().then(() =>
-      loadCollection("passatBorderCrossings"),
-    ),
+    loadCollection("passatBorderCrossings"),
   ]);
 
   const routes = [

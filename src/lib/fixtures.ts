@@ -1,6 +1,5 @@
 import type { CollectionKey } from "@/lib/collections";
 import { COUNTRY_RATING_SEED } from "@/lib/map/country-ratings";
-import { PASSAT_BORDER_CROSSING_SEED } from "@/lib/map/passat-border-crossings";
 
 /** Sample documents matching Atlas `Countries` shapes (used without Mongo). */
 export const fixtures: Record<CollectionKey, unknown[]> = {
@@ -78,7 +77,7 @@ export const fixtures: Record<CollectionKey, unknown[]> = {
     },
   ],
   countryRatings: COUNTRY_RATING_SEED,
-  passatBorderCrossings: PASSAT_BORDER_CROSSING_SEED,
+  passatBorderCrossings: [],
   users: [],
   roles: [{ name: "admin" }],
 };

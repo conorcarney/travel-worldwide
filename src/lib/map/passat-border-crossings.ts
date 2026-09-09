@@ -11,44 +11,6 @@ export type PassatBorderCrossingRow = {
 const CROSSING_TIME = /^(\d{1,2}):([0-5]\d)$/;
 const ENTRY_CLOCK = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
-type SeedTuple = [
-  departureCountry: string,
-  entryCountry: string,
-  totalCrossingTime: string,
-  date?: string,
-];
-
-const SEED_ROWS: SeedTuple[] = [
-  ["Bulgaria", "Turkey", "1:39", "01/06/2025"],
-  ["Turkey", "Georgia", "0:45", "03/06/2025"],
-  ["Georgia", "Armenia", "0:55", "07/06/2025"],
-  ["Armenia", "Georgia", "0:30", "10/06/2025"],
-  ["Georgia", "Turkey", "0:13", "10/06/2025"],
-  ["Turkey", "Iran", "3:45", "11/06/2025"],
-  ["Iran", "Armenia", "2:20", "12/06/2025"],
-  ["Armenia", "Georgia", "1:05", "14/06/2025"],
-  ["Georgia", "Russia", "4:01", "26/10/2025"],
-  ["Russia", "Kazakhstan", "1:30", "30/10/2025"],
-  ["Kazakhstan", "Uzbekistan", "6:55"],
-  ["Uzbekistan", "Kyrgyzstan", "1:56"],
-  ["Kyrgyzstan", "Kazakhstan", "0:24"],
-  ["Kazakhstan", "China", "5:30"],
-  ["China", "Laos", "2:25"],
-  ["Laos", "Thailand", "1:30"],
-  ["Thailand", "Malaysia", "3:19"],
-];
-
-export const PASSAT_BORDER_CROSSING_SEED: PassatBorderCrossingRow[] =
-  SEED_ROWS.map(([departureCountry, entryCountry, totalCrossingTime, date], index) => ({
-    departureCountry,
-    entryCountry,
-    borderName: "",
-    date: date ?? "",
-    entryTime: "",
-    totalCrossingTime,
-    sortIndex: index,
-  }));
-
 export function isCrossingTime(value: string): boolean {
   return CROSSING_TIME.test(value.trim());
 }

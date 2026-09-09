@@ -4,13 +4,11 @@ import { jsonError, jsonOk, loadCollection } from "@/lib/data";
 import {
   PassatBorderCrossingStoreError,
   createPassatBorderCrossing,
-  ensurePassatBorderCrossingsSeeded,
   passatBorderCrossingWriteSchema,
 } from "@/lib/passat-border-crossings-store";
 
 export async function GET() {
   try {
-    await ensurePassatBorderCrossingsSeeded();
     const payload = await loadCollection("passatBorderCrossings");
     return jsonOk(payload);
   } catch (error) {

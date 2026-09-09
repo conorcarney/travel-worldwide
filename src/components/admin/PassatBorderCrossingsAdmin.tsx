@@ -230,48 +230,6 @@ export function PassatBorderCrossingsAdmin() {
     }
   }
 
-  async function seedRows(force = false) {
-    if (
-      force &&
-      !window.confirm(
-        "Replace all existing border crossings with the seed list?",
-      )
-    ) {
-      return;
-    }
-    setMessage(null);
-    setSaving(true);
-    try {
-      const response = await fetch("/api/passat-border-crossings/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force }),
-      });
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: { inserted: number; skipped: boolean };
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Seed failed");
-      }
-      if (body.data.skipped) {
-        setMessage(
-          "Border crossings already exist. Use replace seed to overwrite them.",
-        );
-      } else {
-        setMessage(
-          `Imported ${body.data.inserted.toLocaleString("en-GB")} border crossings.`,
-        );
-        await loadRows(true);
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Seed failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const headerSort = (key: CrossingSortKey) => {
     if (editingId) cancelEdit();
     setSort((current) => nextSortState(current, key));
@@ -401,22 +359,6 @@ export function PassatBorderCrossingsAdmin() {
               placeholder="Search country, border, or date"
               testId="passat-border-search"
             />
-            <button
-              type="button"
-              onClick={() => void seedRows(false)}
-              disabled={saving}
-              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-60"
-            >
-              Import seed
-            </button>
-            <button
-              type="button"
-              onClick={() => void seedRows(true)}
-              disabled={saving}
-              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-60"
-            >
-              Replace with seed
-            </button>
             <button
               type="button"
               onClick={() => void loadRows()}
@@ -633,7 +575,7 @@ export function PassatBorderCrossingsAdmin() {
             </table>
             {sorted.length === 0 ? (
               <p className="px-3 py-4 text-sm text-muted">
-                No border crossings yet. Import the seed list or add one above.
+                No border crossings yet. Add one above.
               </p>
             ) : null}
           </div>

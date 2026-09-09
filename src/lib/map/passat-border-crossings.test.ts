@@ -4,31 +4,31 @@ import {
   isCrossingTime,
   isEntryClock,
   normalizePassatBorderCrossings,
-  PASSAT_BORDER_CROSSING_SEED,
+  type PassatBorderCrossingRow,
 } from "@/lib/map/passat-border-crossings";
 import { passatBorderCrossingWriteSchema } from "@/lib/validations/passat-border-crossing-write";
 import { toPassatBorderCrossingDocument } from "@/lib/passat-border-crossings-store";
 
-describe("PASSAT_BORDER_CROSSING_SEED", () => {
-  it("includes the 17 Passat crossings in trip order", () => {
-    expect(PASSAT_BORDER_CROSSING_SEED).toHaveLength(17);
-    expect(PASSAT_BORDER_CROSSING_SEED[0]).toMatchObject({
-      departureCountry: "Bulgaria",
-      entryCountry: "Turkey",
-      totalCrossingTime: "1:39",
-      date: "01/06/2025",
-      borderName: "",
-      entryTime: "",
-      sortIndex: 0,
-    });
-    expect(PASSAT_BORDER_CROSSING_SEED.at(-1)).toMatchObject({
-      departureCountry: "Thailand",
-      entryCountry: "Malaysia",
-      totalCrossingTime: "3:19",
-      date: "",
-    });
-  });
-});
+const SAMPLE_ROWS: PassatBorderCrossingRow[] = [
+  {
+    departureCountry: "Bulgaria",
+    entryCountry: "Turkey",
+    borderName: "",
+    date: "01/06/2025",
+    entryTime: "",
+    totalCrossingTime: "1:39",
+    sortIndex: 0,
+  },
+  {
+    departureCountry: "Thailand",
+    entryCountry: "Malaysia",
+    borderName: "",
+    date: "",
+    entryTime: "",
+    totalCrossingTime: "3:19",
+    sortIndex: 1,
+  },
+];
 
 describe("crossing time helpers", () => {
   it("accepts hours:minutes including values over 24 hours of clock time", () => {
@@ -115,14 +115,14 @@ describe("toPassatBorderCrossingDocument", () => {
 });
 
 describe("normalizePassatBorderCrossings", () => {
-  it("keeps seed order and drops incomplete rows", () => {
+  it("keeps sort order and drops incomplete rows", () => {
     const rows = normalizePassatBorderCrossings([
-      ...PASSAT_BORDER_CROSSING_SEED,
+      ...SAMPLE_ROWS,
       { departureCountry: "Nowhere" },
     ]);
-    expect(rows).toHaveLength(17);
+    expect(rows).toHaveLength(2);
     expect(rows.map((row) => `${row.departureCountry}-${row.entryCountry}`)).toEqual(
-      PASSAT_BORDER_CROSSING_SEED.map(
+      SAMPLE_ROWS.map(
         (row) => `${row.departureCountry}-${row.entryCountry}`,
       ),
     );

@@ -1,7 +1,6 @@
 import { ObjectId, type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { PASSAT_BORDER_CROSSING_SEED } from "@/lib/map/passat-border-crossings";
 import { getDb, isMongoConfigured } from "@/lib/mongodb";
 import {
   type PassatBorderCrossingRecord,
@@ -124,43 +123,5 @@ export async function deletePassatBorderCrossing(id: string): Promise<void> {
   const result = await crossingsCollection(db).deleteOne({ _id: objectId });
   if (result.deletedCount === 0) {
     throw new PassatBorderCrossingStoreError("Border crossing not found", 404);
-  }
-}
-
-/** Insert seed rows when the collection is empty. */
-export async function seedPassatBorderCrossings(force = false): Promise<{
-  inserted: number;
-  skipped: boolean;
-}> {
-  const db = await requirePassatBorderCrossingsDb();
-  const collection = crossingsCollection(db);
-  const existingCount = await collection.countDocuments();
-
-  if (existingCount > 0 && !force) {
-    return { inserted: 0, skipped: true };
-  }
-
-  if (force && existingCount > 0) {
-    await collection.deleteMany({});
-  }
-
-  const documents = PASSAT_BORDER_CROSSING_SEED.map((row) =>
-    toPassatBorderCrossingDocument(row, row.sortIndex),
-  );
-  if (documents.length === 0) {
-    return { inserted: 0, skipped: false };
-  }
-
-  const result = await collection.insertMany(documents);
-  return { inserted: result.insertedCount, skipped: false };
-}
-
-/** Seed an empty Mongo collection so the stats page has the initial rows. */
-export async function ensurePassatBorderCrossingsSeeded(): Promise<void> {
-  if (!isMongoConfigured()) return;
-  try {
-    await seedPassatBorderCrossings();
-  } catch {
-    // Stats/admin can still load fixtures or an existing collection.
   }
 }
