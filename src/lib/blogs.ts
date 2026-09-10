@@ -11,6 +11,7 @@ import {
 export {
   blogWriteSchema,
   briefBlogDescription,
+  canAccessBlog,
   isPublicBlog,
   slugifyBlogUrl,
   type BlogRecord,

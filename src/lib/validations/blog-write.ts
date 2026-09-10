@@ -42,6 +42,18 @@ export function isPublicBlog(blog: {
   return true;
 }
 
+export function canAccessBlog(
+  blog: {
+    tags?: string | null;
+    blog_title?: string | null;
+  },
+  options: { allowUnlisted?: boolean } = {},
+): boolean {
+  if (!blog.blog_title?.trim()) return false;
+  if (options.allowUnlisted) return true;
+  return isPublicBlog(blog);
+}
+
 export function briefBlogDescription(
   description: string,
   maxLength = 160,

@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { CountryChecklist } from "@/components/stats/CountryChecklist";
 import { CountryRatingsStats } from "@/components/stats/CountryRatingsStats";
 import { PassatRoadTripStats } from "@/components/stats/PassatRoadTripStats";
-import { NewCountriesByYearChart } from "@/components/stats/NewCountriesByYearChart";
 import { StatisticsCarousel } from "@/components/stats/StatisticsCarousel";
 import {
   StatisticsView,
@@ -73,13 +72,12 @@ export default async function StatsPage() {
   const slideContent = {
     overall: (
       <>
-        <StatisticsView {...statisticsView} />
+        <StatisticsView {...statisticsView} visited={visited} />
         <CountryChecklist
           rows={countryChecklist}
           visitedCount={checklistSummary.visited}
           totalCount={checklistSummary.total}
         />
-        <NewCountriesByYearChart visited={visited} initialYear={2013} />
       </>
     ),
     passat: <PassatRoadTripStats borderCrossings={borderCrossings} />,

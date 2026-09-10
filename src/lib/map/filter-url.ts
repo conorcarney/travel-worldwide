@@ -36,6 +36,9 @@ export const DEFAULT_LAYERS: LayerVisibility = {
 /** Default map zoom when the URL omits `zoom`. */
 export const DEFAULT_MAP_ZOOM = 6;
 
+/** Default date-filter start when the URL omits `from`. */
+export const DEFAULT_FILTER_START: YearMonth = { year: 2015, month: 10 };
+
 /**
  * Highest zoom restored from the URL on load.
  * Follow-cam used to persist ~9–16 into `zoom=`; those values are treated as
@@ -171,7 +174,7 @@ export function clampFilterRange(
   min: YearMonth,
   max: YearMonth,
 ): { start: YearMonth; end: YearMonth } {
-  const start = clampYearMonth(from ?? min, min, max);
+  const start = clampYearMonth(from ?? DEFAULT_FILTER_START, min, max);
   const end = clampYearMonth(to ?? max, min, max);
   if (yearMonthKey(start) <= yearMonthKey(end)) {
     return { start, end };
@@ -191,7 +194,12 @@ export function buildMapFilterQuery(input: {
   paused?: boolean;
 }): string {
   const params = new URLSearchParams();
-  if (yearMonthKey(input.from) !== yearMonthKey(input.boundsMin)) {
+  const defaultFrom = clampYearMonth(
+    DEFAULT_FILTER_START,
+    input.boundsMin,
+    input.boundsMax,
+  );
+  if (yearMonthKey(input.from) !== yearMonthKey(defaultFrom)) {
     params.set("from", formatYearMonthParam(input.from));
   }
   if (yearMonthKey(input.to) !== yearMonthKey(input.boundsMax)) {
@@ -237,5 +245,26 @@ export function buildCountryVisitMapHref(country: string, date: string): string 
   }
   const tag = country.trim();
   if (tag) params.append("tag", tag);
+  return `/map?${params.toString()}`;
+}
+
+/** Stats → map: only this travel mode, with the full year range. */
+export function buildModeMapHref(mode: TravelMode): string {
+  const layers: LayerVisibility = {
+    visited: false,
+    flight: false,
+    ferry: false,
+    bus: false,
+    train: false,
+    car: false,
+    bookmarks: false,
+    [mode]: true,
+  };
+  const params = new URLSearchParams();
+  params.set("from", formatYearMonthParam({ year: 1900, month: 1 }));
+  const hide = MAP_LAYER_KEYS.filter(
+    (key) => DEFAULT_LAYERS[key] && !layers[key],
+  );
+  if (hide.length > 0) params.set("hide", hide.join(","));
   return `/map?${params.toString()}`;
 }

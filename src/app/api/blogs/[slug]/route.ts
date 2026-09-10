@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { BlogStoreError, getBlogBySlug } from "@/lib/blogs";
-import { fixtures } from "@/lib/fixtures";
+import { auth } from "@/auth";
+import { isAdminSession } from "@/lib/authz";
+import { loadBlogBySlug } from "@/lib/blog-pages";
+import { BlogStoreError } from "@/lib/blogs";
 import { isMongoConfigured } from "@/lib/mongodb";
-import { isPublicBlog, type BlogRecord } from "@/lib/validations/blog-write";
 
 type RouteContext = {
   params: Promise<{ slug: string }>;
@@ -11,29 +12,23 @@ type RouteContext = {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { slug } = await context.params;
+    const session = await auth();
+    const blog = await loadBlogBySlug(slug, {
+      allowUnlisted: isAdminSession(session),
+    });
 
-    if (!isMongoConfigured()) {
-      const match = (fixtures.blogs as BlogRecord[]).find(
-        (blog) => blog.url === slug,
-      );
-      if (!match || !isPublicBlog(match)) {
-        return NextResponse.json(
-          { ok: false, error: "Blog not found" },
-          { status: 404 },
-        );
-      }
-      return NextResponse.json({ ok: true, source: "fixtures", data: match });
-    }
-
-    const blog = await getBlogBySlug(slug);
-    if (!blog || !isPublicBlog(blog)) {
+    if (!blog) {
       return NextResponse.json(
         { ok: false, error: "Blog not found" },
         { status: 404 },
       );
     }
 
-    return NextResponse.json({ ok: true, source: "mongodb", data: blog });
+    return NextResponse.json({
+      ok: true,
+      source: isMongoConfigured() ? "mongodb" : "fixtures",
+      data: blog,
+    });
   } catch (error) {
     if (error instanceof BlogStoreError) {
       return NextResponse.json(

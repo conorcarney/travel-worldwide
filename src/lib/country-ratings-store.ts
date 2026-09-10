@@ -1,11 +1,11 @@
 import { ObjectId, type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { COUNTRY_RATING_SEED, computeCountryRatingAverage } from "@/lib/map/country-ratings";
+import { computeCountryRatingAverage } from "@/lib/map/country-ratings";
 import { getDb, isMongoConfigured } from "@/lib/mongodb";
-import {
-  type CountryRatingRecord,
-  type CountryRatingWriteInput,
+import type {
+  CountryRatingRecord,
+  CountryRatingWriteInput,
 } from "@/lib/validations/country-rating-write";
 
 export {
@@ -134,32 +134,4 @@ export async function deleteCountryRating(id: string): Promise<void> {
   if (result.deletedCount === 0) {
     throw new CountryRatingStoreError("Country rating not found", 404);
   }
-}
-
-/** Insert spreadsheet seed rows when the collection is empty. */
-export async function seedCountryRatings(force = false): Promise<{
-  inserted: number;
-  skipped: boolean;
-}> {
-  const db = await requireCountryRatingsDb();
-  const collection = ratingsCollection(db);
-  const existingCount = await collection.countDocuments();
-
-  if (existingCount > 0 && !force) {
-    return { inserted: 0, skipped: true };
-  }
-
-  if (force && existingCount > 0) {
-    await collection.deleteMany({});
-  }
-
-  const documents = COUNTRY_RATING_SEED.map((row) =>
-    toCountryRatingDocument(row),
-  );
-  if (documents.length === 0) {
-    return { inserted: 0, skipped: false };
-  }
-
-  const result = await collection.insertMany(documents);
-  return { inserted: result.insertedCount, skipped: false };
 }

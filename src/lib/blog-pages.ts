@@ -2,6 +2,7 @@ import { BlogStoreError, listPublicBlogs, getBlogBySlug } from "@/lib/blogs";
 import { fixtures } from "@/lib/fixtures";
 import { isMongoConfigured } from "@/lib/mongodb";
 import {
+  canAccessBlog,
   isPublicBlog,
   type BlogRecord,
 } from "@/lib/validations/blog-write";
@@ -23,15 +24,14 @@ export async function loadPublicBlogs(): Promise<BlogRecord[]> {
   }
 }
 
-export async function loadPublicBlogBySlug(
+export async function loadBlogBySlug(
   slug: string,
+  options: { allowUnlisted?: boolean } = {},
 ): Promise<BlogRecord | null> {
-  if (!isMongoConfigured()) {
-    const match = fixtureBlogs().find((blog) => blog.url === slug) ?? null;
-    return match && isPublicBlog(match) ? match : null;
-  }
+  const blog = !isMongoConfigured()
+    ? (fixtureBlogs().find((entry) => entry.url === slug) ?? null)
+    : await getBlogBySlug(slug);
 
-  const blog = await getBlogBySlug(slug);
-  if (!blog || !isPublicBlog(blog)) return null;
+  if (!blog || !canAccessBlog(blog, options)) return null;
   return blog;
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_FILTER_START,
   DEFAULT_LAYERS,
   DEFAULT_MAP_ZOOM,
   buildCountryVisitMapHref,
   buildMapFilterQuery,
+  buildModeMapHref,
   clampFilterRange,
   parseMapFilterSearch,
   parseYearMonthParam,
@@ -47,7 +49,7 @@ describe("buildMapFilterQuery", () => {
   it("always writes speed, zoom, and paused", () => {
     expect(
       buildMapFilterQuery({
-        from: boundsMin,
+        from: DEFAULT_FILTER_START,
         to: boundsMax,
         boundsMin,
         boundsMax,
@@ -81,7 +83,7 @@ describe("buildMapFilterQuery", () => {
   it("writes multiple tags", () => {
     expect(
       buildMapFilterQuery({
-        from: boundsMin,
+        from: DEFAULT_FILTER_START,
         to: boundsMax,
         boundsMin,
         boundsMax,
@@ -97,7 +99,7 @@ describe("buildMapFilterQuery", () => {
   it("writes non-default speed, zoom, and paused", () => {
     expect(
       buildMapFilterQuery({
-        from: boundsMin,
+        from: DEFAULT_FILTER_START,
         to: boundsMax,
         boundsMin,
         boundsMax,
@@ -108,6 +110,22 @@ describe("buildMapFilterQuery", () => {
         paused: true,
       }),
     ).toBe("speed=fast&zoom=8&paused=1");
+  });
+
+  it("writes from when it is not the default start", () => {
+    expect(
+      buildMapFilterQuery({
+        from: boundsMin,
+        to: boundsMax,
+        boundsMin,
+        boundsMax,
+        tags: [],
+        layers: DEFAULT_LAYERS,
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+      }),
+    ).toBe("from=2000-01&speed=normal&zoom=6&paused=0");
   });
 });
 
@@ -166,6 +184,20 @@ describe("clampFilterRange", () => {
       end: { year: 2022, month: 1 },
     });
   });
+
+  it("defaults a missing start to Oct 2015", () => {
+    expect(
+      clampFilterRange(
+        null,
+        null,
+        { year: 1992, month: 11 },
+        { year: 2027, month: 12 },
+      ),
+    ).toEqual({
+      start: { year: 2015, month: 10 },
+      end: { year: 2027, month: 12 },
+    });
+  });
 });
 
 describe("buildCountryVisitMapHref", () => {
@@ -189,5 +221,30 @@ describe("buildCountryVisitMapHref", () => {
     expect(parsed.from).toEqual({ year: 2013, month: 10 });
     expect(parsed.to).toEqual({ year: 2013, month: 10 });
     expect(parsed.tags).toEqual(["Germany"]);
+  });
+});
+
+describe("buildModeMapHref", () => {
+  it("turns on only that mode and starts the date filter at the earliest year", () => {
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams(buildModeMapHref("flight").slice("/map?".length)),
+    );
+    expect(parsed.from).toEqual({ year: 1900, month: 1 });
+    expect(parsed.to).toBeNull();
+    expect(parsed.layers).toEqual({
+      visited: false,
+      flight: true,
+      ferry: false,
+      bus: false,
+      train: false,
+      car: false,
+      bookmarks: false,
+    });
+  });
+
+  it("hides every other default-on layer for car trips", () => {
+    expect(buildModeMapHref("car")).toBe(
+      "/map?from=1900-01&hide=visited%2Cflight%2Cferry%2Cbus%2Ctrain",
+    );
   });
 });

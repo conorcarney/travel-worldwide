@@ -7,8 +7,13 @@ import {
   parseTripMedia,
   type TripMediaItem,
 } from "@/lib/map/trip-media";
+import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
 
 type MediaSize = { width: number; height: number };
+
+function mediaLoadingLabel(kind: TripMediaItem["kind"]): string {
+  return kind === "image" ? "Loading photo…" : "Loading video…";
+}
 
 function MediaSlide({
   item,
@@ -21,6 +26,11 @@ function MediaSlide({
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const markLoaded = useCallback(() => {
+    setLoaded(true);
+  }, []);
 
   useLayoutEffect(() => {
     if (item.kind === "youtube" || item.kind === "vimeo") {
@@ -39,6 +49,9 @@ function MediaSlide({
           height: video.videoHeight,
         });
       }
+      if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        setLoaded(true);
+      }
       return;
     }
 
@@ -48,60 +61,70 @@ function MediaSlide({
         width: image.naturalWidth,
         height: image.naturalHeight,
       });
+      setLoaded(true);
     }
   }, [item, onNaturalSize]);
 
-  if (item.kind === "youtube" || item.kind === "vimeo") {
-    return (
-      <iframe
-        src={item.embedUrl}
-        title={title}
-        className="h-full w-full border-0"
-        allow="autoplay; encrypted-media; picture-in-picture"
-        allowFullScreen
-      />
-    );
-  }
-
-  if (item.kind === "video") {
-    return (
-      <video
-        ref={videoRef}
-        src={item.url}
-        className="h-full w-full object-contain"
-        autoPlay
-        muted
-        loop
-        playsInline
-        onLoadedMetadata={(event) => {
-          const video = event.currentTarget;
-          if (video.videoWidth > 0 && video.videoHeight > 0) {
-            onNaturalSize({
-              width: video.videoWidth,
-              height: video.videoHeight,
-            });
-          }
-        }}
-      />
-    );
-  }
-
   return (
-    <img
-      ref={imageRef}
-      src={item.url}
-      alt={title}
-      className="h-full w-full object-contain"
-      onLoad={(event) => {
-        const image = event.currentTarget;
-        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-          onNaturalSize({
-            width: image.naturalWidth,
-            height: image.naturalHeight,
-          });
-        }
-      }}
-    />
+    <>
+      {item.kind === "youtube" || item.kind === "vimeo" ? (
+        <iframe
+          src={item.embedUrl}
+          title={title}
+          className={`h-full w-full border-0 ${loaded ? "opacity-100" : "opacity-0"}`}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+          onLoad={markLoaded}
+        />
+      ) : item.kind === "video" ? (
+        <video
+          ref={videoRef}
+          src={item.url}
+          className={`h-full w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
+          autoPlay
+          muted
+          loop
+          playsInline
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              onNaturalSize({
+                width: video.videoWidth,
+                height: video.videoHeight,
+              });
+            }
+          }}
+          onCanPlay={markLoaded}
+          onError={markLoaded}
+        />
+      ) : (
+        <img
+          ref={imageRef}
+          src={item.url}
+          alt={title}
+          className={`h-full w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
+          onLoad={(event) => {
+            const image = event.currentTarget;
+            if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+              onNaturalSize({
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+              });
+            }
+            markLoaded();
+          }}
+          onError={markLoaded}
+        />
+      )}
+      {!loaded ? (
+        <div
+          className="absolute inset-0 z-[1] flex items-center justify-center bg-black/40"
+          data-testid="journey-media-loading"
+        >
+          <MapLoadingSpinner compact label={mediaLoadingLabel(item.kind)} />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -221,7 +244,7 @@ export function JourneyMediaOverlay({
             <>
               <button
                 type="button"
-                className={`${STEP_BUTTON} absolute top-1/2 left-2 -translate-y-1/2`}
+                className={`${STEP_BUTTON} absolute top-1/2 left-2 z-10 -translate-y-1/2`}
                 onClick={() => step(-1)}
                 aria-label="Previous photo"
                 data-testid="journey-media-prev"
@@ -230,7 +253,7 @@ export function JourneyMediaOverlay({
               </button>
               <button
                 type="button"
-                className={`${STEP_BUTTON} absolute top-1/2 right-2 -translate-y-1/2`}
+                className={`${STEP_BUTTON} absolute top-1/2 right-2 z-10 -translate-y-1/2`}
                 onClick={() => step(1)}
                 aria-label="Next photo"
                 data-testid="journey-media-next"
@@ -238,7 +261,7 @@ export function JourneyMediaOverlay({
                 ›
               </button>
               <p
-                className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs text-white"
+                className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs text-white"
                 data-testid="journey-media-count"
               >
                 {current + 1} / {items.length}

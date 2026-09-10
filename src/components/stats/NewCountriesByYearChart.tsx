@@ -334,7 +334,7 @@ export function NewCountriesByYearChart({
     : [];
 
   return (
-    <section className="relative mt-10" data-testid="countries-by-year" ref={hostRef}>
+    <section className="relative" data-testid="countries-by-year" ref={hostRef}>
       <h2 className="font-display text-lg text-foreground">
         New countries by year
       </h2>

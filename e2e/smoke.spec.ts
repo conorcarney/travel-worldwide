@@ -20,6 +20,13 @@ test("map page renders Leaflet with controls", async ({ page }) => {
     timeout: 60_000,
   });
   await expect(page.getByTestId("map-controls")).toBeVisible();
+  await expect(page.getByTestId("map-filter-status")).toBeVisible();
+  await expect(page.getByTestId("year-start-value")).toHaveText("Oct 2015");
+  const from = await page.getByTestId("year-start-value").textContent();
+  const to = await page.getByTestId("year-end-value").textContent();
+  const dates = from === to ? from : `${from} – ${to}`;
+  await expect(page.getByTestId("map-filter-dates")).toHaveText(dates ?? "");
+  await expect(page.getByTestId("map-filter-active")).toHaveCount(0);
   await expect(page.getByTestId("layer-visited")).toBeChecked();
   await expect(page.getByTestId("layer-flight")).toBeChecked();
   await expect(page.getByTestId("layer-bookmarks")).not.toBeChecked();

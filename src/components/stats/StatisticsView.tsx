@@ -10,6 +10,7 @@ import {
   ModeTable,
   RankedTable,
 } from "@/components/stats/SortableStatsTables";
+import { NewCountriesByYearChart } from "@/components/stats/NewCountriesByYearChart";
 
 type StatisticsViewProps = ExtendedTravelStatistics;
 
@@ -44,7 +45,10 @@ export function StatisticsView({
   travel,
   topAirports,
   topCountries,
-}: Omit<StatisticsViewProps, "countriesByYear">) {
+  visited,
+}: Omit<StatisticsViewProps, "countriesByYear"> & {
+  visited: Array<{ name: string; date?: string }>;
+}) {
   const flights = modeStats(travel, "flight");
   const unPct =
     unMemberTotal > 0
@@ -99,6 +103,8 @@ export function StatisticsView({
       </div>
 
       <ModeTable travel={travel} />
+
+      <NewCountriesByYearChart visited={visited} initialYear={2013} />
 
       <RankedTable
         title="Most visited airports"

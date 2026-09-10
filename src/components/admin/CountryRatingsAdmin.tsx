@@ -252,48 +252,6 @@ export function CountryRatingsAdmin() {
     }
   }
 
-  async function seedRatings(force = false) {
-    if (
-      force &&
-      !window.confirm(
-        "Replace all existing country ratings with the spreadsheet seed data?",
-      )
-    ) {
-      return;
-    }
-    setMessage(null);
-    setSaving(true);
-    try {
-      const response = await fetch("/api/country-ratings/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force }),
-      });
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: { inserted: number; skipped: boolean };
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Seed failed");
-      }
-      if (body.data.skipped) {
-        setMessage(
-          "Country ratings already exist. Use replace seed to overwrite them.",
-        );
-      } else {
-        setMessage(
-          `Imported ${body.data.inserted.toLocaleString("en-GB")} country ratings.`,
-        );
-        await loadRatings(true);
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Seed failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="mx-auto flex w-full max-w-[90rem] flex-col gap-8 px-4 py-8 sm:px-6">
       <div>
@@ -413,33 +371,13 @@ export function CountryRatingsAdmin() {
           <h2 className="font-display text-xl text-foreground">
             Ratings ({sortedRatings.length})
           </h2>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void seedRatings(false)}
-              disabled={saving}
-              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-60"
-              data-testid="country-ratings-seed"
-            >
-              Import spreadsheet seed
-            </button>
-            <button
-              type="button"
-              onClick={() => void seedRatings(true)}
-              disabled={saving}
-              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-60"
-              data-testid="country-ratings-seed-force"
-            >
-              Replace with seed
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadRatings()}
-              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline"
-            >
-              Refresh
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void loadRatings()}
+            className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Refresh
+          </button>
         </div>
 
         {status === "loading" ? (
@@ -674,8 +612,7 @@ export function CountryRatingsAdmin() {
             </table>
             {sortedRatings.length === 0 ? (
               <p className="px-3 py-4 text-sm text-muted">
-                No country ratings yet. Import the spreadsheet seed or add one
-                above.
+                No country ratings yet. Add one above.
               </p>
             ) : null}
           </div>

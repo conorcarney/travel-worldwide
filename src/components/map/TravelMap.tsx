@@ -71,16 +71,19 @@ import type {
 import {
   buildMapFilterQuery,
   clampFilterRange,
+  DEFAULT_FILTER_START,
   DEFAULT_MAP_ZOOM,
   DEFAULT_PLAYBACK_SPEED,
   parseMapFilterSearch,
   resolveInitialMapZoom,
 } from "@/lib/map/filter-url";
+import { formatMapFilterStatus } from "@/lib/map/filter-summary";
 import {
   MapControls,
   type LayerVisibility,
 } from "@/components/map/MapControls";
 import { JourneyMediaOverlay } from "@/components/map/JourneyMediaOverlay";
+import { MapFilterStatus } from "@/components/map/MapFilterStatus";
 import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
 import { MapZoomSync } from "@/components/map/MapZoomSync";
 import { OpenFreeMapLayer } from "@/components/map/OpenFreeMapLayer";
@@ -217,10 +220,7 @@ export default function TravelMap() {
   );
   const [rangeMin, setRangeMin] = useState<YearMonth>({ year: 2000, month: 1 });
   const [rangeMax, setRangeMax] = useState<YearMonth>({ year: 2027, month: 12 });
-  const [rangeStart, setRangeStart] = useState<YearMonth>({
-    year: 2000,
-    month: 1,
-  });
+  const [rangeStart, setRangeStart] = useState<YearMonth>(DEFAULT_FILTER_START);
   const [rangeEnd, setRangeEnd] = useState<YearMonth>({
     year: 2027,
     month: 12,
@@ -573,6 +573,11 @@ export default function TravelMap() {
     rangeEnd.year,
   );
   const rangeLabel = formatYearMonthRange(rangeStart, rangeEnd);
+  const filterStatus = formatMapFilterStatus({
+    rangeLabel,
+    tags: tagFilters,
+    layers,
+  });
   const asOfLabel = playbackFinished
     ? rangeLabel
     : playbackCursor
@@ -727,29 +732,35 @@ export default function TravelMap() {
       ) : null}
 
       {status === "ready" ? (
-        <MapControls
-          layers={layers}
-          onToggleLayer={toggleLayer}
-          rangeStart={rangeStart}
-          rangeEnd={rangeEnd}
-          rangeMin={rangeMin}
-          rangeMax={rangeMax}
-          onRangeStartChange={updateRangeStart}
-          onRangeEndChange={updateRangeEnd}
-          onRangeApply={applyFilterRange}
-          tagFilters={tagFilters}
-          tagOptions={availableTags}
-          onTagFiltersChange={updateTagFilters}
-          noTagResults={
-            tagFilters.length > 0 && yearFilteredRoutes.length === 0
-          }
-          visibleCounts={{
-            visited: layers.visited ? visitedNames.size : 0,
-            routes: visibleRoutes.length,
-            bookmarks: visibleBookmarks.length,
-            asOfLabel,
-          }}
-        />
+        <>
+          <MapFilterStatus
+            dates={filterStatus.dates}
+            filters={filterStatus.filters}
+          />
+          <MapControls
+            layers={layers}
+            onToggleLayer={toggleLayer}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            rangeMin={rangeMin}
+            rangeMax={rangeMax}
+            onRangeStartChange={updateRangeStart}
+            onRangeEndChange={updateRangeEnd}
+            onRangeApply={applyFilterRange}
+            tagFilters={tagFilters}
+            tagOptions={availableTags}
+            onTagFiltersChange={updateTagFilters}
+            noTagResults={
+              tagFilters.length > 0 && yearFilteredRoutes.length === 0
+            }
+            visibleCounts={{
+              visited: layers.visited ? visitedNames.size : 0,
+              routes: visibleRoutes.length,
+              bookmarks: visibleBookmarks.length,
+              asOfLabel,
+            }}
+          />
+        </>
       ) : null}
 
       <div className="relative min-h-[60vh] flex-1" data-testid="leaflet-root">

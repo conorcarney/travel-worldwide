@@ -3,6 +3,7 @@ import { toBlogDocument } from "@/lib/blogs";
 import {
   blogWriteSchema,
   briefBlogDescription,
+  canAccessBlog,
   isPublicBlog,
   slugifyBlogUrl,
 } from "@/lib/validations/blog-write";
@@ -22,6 +23,18 @@ describe("isPublicBlog", () => {
     ).toBe(false);
     expect(isPublicBlog({ blog_title: "A", tags: "Hidden" })).toBe(false);
     expect(isPublicBlog({ blog_title: "A", tags: "" })).toBe(true);
+  });
+});
+
+describe("canAccessBlog", () => {
+  it("keeps hidden posts private unless unlisted access is allowed", () => {
+    const hidden = { blog_title: "A", tags: "Hidden" };
+    expect(canAccessBlog(hidden)).toBe(false);
+    expect(canAccessBlog(hidden, { allowUnlisted: true })).toBe(true);
+    expect(canAccessBlog({ blog_title: "A", tags: "" })).toBe(true);
+    expect(
+      canAccessBlog({ blog_title: "", tags: "Hidden" }, { allowUnlisted: true }),
+    ).toBe(false);
   });
 });
 

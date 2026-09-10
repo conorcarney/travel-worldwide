@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import {
   formatDistanceKm,
   type TravelStatsSummary,
 } from "@/lib/map/distance";
+import { buildModeMapHref } from "@/lib/map/filter-url";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
 import {
   modeStats,
@@ -116,26 +118,32 @@ export function RankedTable({
 }
 
 function ModeRow({ row }: { row: ModeRowData }) {
+  const href = buildModeMapHref(row.mode);
   return (
-    <tr
-      className="border-b border-border/60"
-      data-testid={`statistics-mode-${row.mode}`}
-    >
+    <tr className="border-b border-border/60 hover:bg-accent/10">
       <td className="py-2.5 pr-4">
-        <span className="inline-flex items-center gap-2 text-foreground">
+        <Link
+          href={href}
+          className="inline-flex items-center gap-2 text-foreground hover:text-accent"
+          data-testid={`statistics-mode-${row.mode}`}
+        >
           <span
             aria-hidden
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ backgroundColor: ROUTE_COLORS[row.mode] }}
           />
           {row.label}
-        </span>
+        </Link>
       </td>
       <td className="py-2.5 pr-4 tabular-nums text-foreground">
-        {row.count.toLocaleString("en-GB")}
+        <Link href={href} className="hover:text-accent">
+          {row.count.toLocaleString("en-GB")}
+        </Link>
       </td>
       <td className="py-2.5 tabular-nums text-foreground">
-        {formatDistanceKm(row.distanceKm)}
+        <Link href={href} className="hover:text-accent">
+          {formatDistanceKm(row.distanceKm)}
+        </Link>
       </td>
     </tr>
   );
@@ -159,7 +167,8 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
         Trips and distance by mode
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Counts and great-circle distances from mapped routes.
+        Counts and great-circle distances from mapped routes. Click a mode to
+        open it on the map.
       </p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[28rem] text-left text-sm">
