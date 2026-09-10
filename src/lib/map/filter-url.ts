@@ -105,6 +105,13 @@ export function parsePausedParam(search: {
   return false;
 }
 
+export function parseShowAllParam(search: {
+  get: (name: string) => string | null;
+}): boolean {
+  const all = search.get("all");
+  return all === "1" || all === "true";
+}
+
 export function layersFromSearch(
   search: Pick<URLSearchParams, "get">,
 ): LayerVisibility {
@@ -130,6 +137,7 @@ export type MapFilterSearch = {
   speed: PlaybackSpeedId;
   zoom: number;
   paused: boolean;
+  showAll: boolean;
 };
 
 export function parseMapFilterSearch(search: {
@@ -144,6 +152,7 @@ export function parseMapFilterSearch(search: {
     speed: parsePlaybackSpeedParam(search.get("speed")),
     zoom: parseMapZoomParam(search.get("zoom")),
     paused: parsePausedParam(search),
+    showAll: parseShowAllParam(search),
   };
 }
 
@@ -192,6 +201,7 @@ export function buildMapFilterQuery(input: {
   speed?: PlaybackSpeedId;
   zoom?: number;
   paused?: boolean;
+  showAll?: boolean;
 }): string {
   const params = new URLSearchParams();
   const defaultFrom = clampYearMonth(
@@ -231,6 +241,7 @@ export function buildMapFilterQuery(input: {
   params.set("zoom", String(zoom));
 
   params.set("paused", input.paused ? "1" : "0");
+  if (input.showAll) params.set("all", "1");
 
   return params.toString();
 }
@@ -248,8 +259,8 @@ export function buildCountryVisitMapHref(country: string, date: string): string 
   return `/map?${params.toString()}`;
 }
 
-/** Stats → map: only this travel mode, with the full year range. */
-export function buildModeMapHref(mode: TravelMode): string {
+/** Stats → map: only this travel mode. Pass a year to limit the date filter. */
+export function buildModeMapHref(mode: TravelMode, year?: number): string {
   const layers: LayerVisibility = {
     visited: false,
     flight: false,
@@ -261,10 +272,16 @@ export function buildModeMapHref(mode: TravelMode): string {
     [mode]: true,
   };
   const params = new URLSearchParams();
-  params.set("from", formatYearMonthParam({ year: 1900, month: 1 }));
+  if (year !== undefined) {
+    params.set("from", formatYearMonthParam({ year, month: 1 }));
+    params.set("to", formatYearMonthParam({ year, month: 12 }));
+  } else {
+    params.set("from", formatYearMonthParam({ year: 1900, month: 1 }));
+  }
   const hide = MAP_LAYER_KEYS.filter(
     (key) => DEFAULT_LAYERS[key] && !layers[key],
   );
   if (hide.length > 0) params.set("hide", hide.join(","));
+  params.set("all", "1");
   return `/map?${params.toString()}`;
 }

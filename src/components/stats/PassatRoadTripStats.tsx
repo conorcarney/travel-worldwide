@@ -1,6 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import type { MouseEvent } from "react";
 import {
+  buildPassatCountryMapHref,
   formatPassatEur,
   formatPassatNumber,
   PASSAT_BREAKDOWN_ROWS,
@@ -21,7 +24,34 @@ import { useTableSort } from "@/lib/admin/use-table-sort";
 
 const STATS_TH = "pb-2 pr-3 font-medium";
 
-function CountryCells({ row, strong = false }: { row: PassatCountryRow; strong?: boolean }) {
+function goToMap(
+  event: MouseEvent<HTMLElement>,
+  href: string,
+  push: (url: string) => void,
+) {
+  if (
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey ||
+    event.button !== 0
+  ) {
+    return;
+  }
+  event.preventDefault();
+  push(href);
+}
+
+function CountryCells({
+  row,
+  href,
+  strong = false,
+}: {
+  row: PassatCountryRow;
+  href?: string | null;
+  strong?: boolean;
+}) {
+  const router = useRouter();
   const cell = strong
     ? "py-2.5 pr-3 tabular-nums text-foreground font-medium"
     : "py-2.5 pr-3 tabular-nums text-foreground";
@@ -31,7 +61,20 @@ function CountryCells({ row, strong = false }: { row: PassatCountryRow; strong?:
 
   return (
     <>
-      <td className={labelCell}>{row.country}</td>
+      <td className={labelCell}>
+        {href ? (
+          <a
+            href={href}
+            className="text-foreground hover:underline"
+            aria-label={`Open ${row.country} on the map`}
+            onClick={(event) => goToMap(event, href, router.push)}
+          >
+            {row.country}
+          </a>
+        ) : (
+          row.country
+        )}
+      </td>
       <td className={cell}>{formatPassatNumber(row.totalKms)}</td>
       <td className={cell}>{formatPassatNumber(row.daysSpent)}</td>
       <td className={cell}>{formatPassatNumber(row.tanksFilled)}</td>
@@ -131,9 +174,27 @@ export function PassatRoadTripStats({
 }: {
   borderCrossings: PassatBorderCrossingRow[];
 }) {
+  const router = useRouter();
   const countrySort = useTableSort(PASSAT_COUNTRY_ROWS, PASSAT_COUNTRY_ACCESSORS);
   const breakdownSort = useTableSort(PASSAT_BREAKDOWN_ROWS, PASSAT_BREAKDOWN_ACCESSORS);
   const crossingSort = useTableSort(borderCrossings, BORDER_CROSSING_ACCESSORS);
+
+  function onCountryRowClick(
+    event: MouseEvent<HTMLTableRowElement>,
+    href: string,
+  ) {
+    if ((event.target as HTMLElement).closest("a, button")) return;
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      window.open(href, "_blank", "noopener,noreferrer");
+      return;
+    }
+    goToMap(event, href, router.push);
+  }
 
   return (
     <div className="mt-8 space-y-10" data-testid="passat-road-trip-stats">
@@ -163,7 +224,8 @@ export function PassatRoadTripStats({
           Costs by country
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Distance, time, fuel, and other car costs across the road trip.
+          Distance, time, fuel, and other car costs across the road trip. Click
+          a country to open it on the map.
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[64rem] text-left text-sm">
@@ -188,15 +250,27 @@ export function PassatRoadTripStats({
               </tr>
             </thead>
             <tbody>
-              {countrySort.sorted.map((row) => (
-                <tr
-                  key={row.country}
-                  className="border-b border-border/60"
-                  data-testid={`passat-country-${row.country.replace(/\s+/g, "-").toLowerCase()}`}
-                >
-                  <CountryCells row={row} />
-                </tr>
-              ))}
+              {countrySort.sorted.map((row) => {
+                const href = buildPassatCountryMapHref(row.country);
+                return (
+                  <tr
+                    key={row.country}
+                    className={
+                      href
+                        ? "cursor-pointer border-b border-border/60 hover:bg-foreground/[0.04]"
+                        : "border-b border-border/60"
+                    }
+                    data-testid={`passat-country-${row.country.replace(/\s+/g, "-").toLowerCase()}`}
+                    onClick={
+                      href
+                        ? (event) => onCountryRowClick(event, href)
+                        : undefined
+                    }
+                  >
+                    <CountryCells row={row} href={href} />
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-border">

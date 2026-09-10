@@ -32,7 +32,8 @@ export default function HomePage() {
           my vision, rules to follow, and stylistic guides through a variety of agent.md files.
         </h1>
         <h1 className="mt-4 max-w-4xl text-lg text-foreground sm:text-xl">
-          More on the tech side - there's an auth stream for access to admin, customised admin panels for a variety of CRUD functions, and for viewing google analytics.
+          More on the tech side - there's an auth stream for access to admin, customised admin panels for a variety of CRUD functions, and for viewing google analytics. The statistics page
+          has drilldown graphs so users can deep dive into the data.
         </h1>
         <h1 className="mt-4 max-w-4xl text-lg text-foreground sm:text-xl">
           At the moment data is still manually entered.  Statistics update automatically.
@@ -46,6 +47,12 @@ export default function HomePage() {
             className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
             Open map
+          </Link>
+          <Link
+            href="/stats"
+            className="inline-flex items-center rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Open Statistics
           </Link>
           <Link
             href="/blogs"

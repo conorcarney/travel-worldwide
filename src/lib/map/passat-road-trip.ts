@@ -1,3 +1,10 @@
+import {
+  DEFAULT_LAYERS,
+  MAP_LAYER_KEYS,
+  formatYearMonthParam,
+  type LayerVisibility,
+} from "@/lib/map/filter-url";
+
 export type PassatCountryRow = {
   country: string;
   totalKms: number;
@@ -377,6 +384,49 @@ export const PASSAT_BREAKDOWN_ROWS: PassatBreakdownRow[] = [
 ];
 
 export const PASSAT_BREAKDOWN_TOTAL_EUR = 396.18;
+
+const PASSAT_MAP_LAYERS: LayerVisibility = {
+  visited: false,
+  flight: false,
+  ferry: true,
+  bus: false,
+  train: false,
+  car: true,
+  bookmarks: false,
+};
+
+/** Tag and date range for a costs-by-country row on the map. */
+export function passatCountryMapTarget(country: string): {
+  tag: string;
+  fromYear: number;
+  toYear: number;
+} | null {
+  const name = country.trim();
+  if (!name || name.toLowerCase() === "total") return null;
+  if (/^kazakhstan 2$/i.test(name)) {
+    return { tag: "Kazakhstan", fromYear: 2026, toYear: 2026 };
+  }
+  if (/^kazakhstan$/i.test(name)) {
+    return { tag: "Kazakhstan", fromYear: 2025, toYear: 2025 };
+  }
+  return { tag: name, fromYear: 2025, toYear: 2026 };
+}
+
+/** Stats → map: country tag, Passat years, car and ferries only. */
+export function buildPassatCountryMapHref(country: string): string | null {
+  const target = passatCountryMapTarget(country);
+  if (!target) return null;
+  const params = new URLSearchParams();
+  params.set("from", formatYearMonthParam({ year: target.fromYear, month: 1 }));
+  params.set("to", formatYearMonthParam({ year: target.toYear, month: 12 }));
+  params.append("tag", target.tag);
+  const hide = MAP_LAYER_KEYS.filter(
+    (key) => DEFAULT_LAYERS[key] && !PASSAT_MAP_LAYERS[key],
+  );
+  if (hide.length > 0) params.set("hide", hide.join(","));
+  params.set("all", "1");
+  return `/map?${params.toString()}`;
+}
 
 export function formatPassatEur(value: number): string {
   return value.toLocaleString("en-GB", {

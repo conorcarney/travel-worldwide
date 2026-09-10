@@ -112,6 +112,23 @@ describe("buildMapFilterQuery", () => {
     ).toBe("speed=fast&zoom=8&paused=1");
   });
 
+  it("writes all=1 when show all is on", () => {
+    expect(
+      buildMapFilterQuery({
+        from: DEFAULT_FILTER_START,
+        to: boundsMax,
+        boundsMin,
+        boundsMax,
+        tags: [],
+        layers: DEFAULT_LAYERS,
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+        showAll: true,
+      }),
+    ).toBe("speed=normal&zoom=6&paused=0&all=1");
+  });
+
   it("writes from when it is not the default start", () => {
     expect(
       buildMapFilterQuery({
@@ -167,6 +184,13 @@ describe("playback URL params", () => {
     expect(parseMapFilterSearch(new URLSearchParams("paused=0")).paused).toBe(
       false,
     );
+  });
+
+  it("reads show-all from all=1", () => {
+    expect(parseMapFilterSearch(new URLSearchParams("all=1")).showAll).toBe(
+      true,
+    );
+    expect(parseMapFilterSearch(new URLSearchParams()).showAll).toBe(false);
   });
 });
 
@@ -231,6 +255,7 @@ describe("buildModeMapHref", () => {
     );
     expect(parsed.from).toEqual({ year: 1900, month: 1 });
     expect(parsed.to).toBeNull();
+    expect(parsed.showAll).toBe(true);
     expect(parsed.layers).toEqual({
       visited: false,
       flight: true,
@@ -244,7 +269,20 @@ describe("buildModeMapHref", () => {
 
   it("hides every other default-on layer for car trips", () => {
     expect(buildModeMapHref("car")).toBe(
-      "/map?from=1900-01&hide=visited%2Cflight%2Cferry%2Cbus%2Ctrain",
+      "/map?from=1900-01&hide=visited%2Cflight%2Cferry%2Cbus%2Ctrain&all=1",
     );
+  });
+
+  it("limits the date filter to one calendar year", () => {
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams(
+        buildModeMapHref("flight", 2018).slice("/map?".length),
+      ),
+    );
+    expect(parsed.from).toEqual({ year: 2018, month: 1 });
+    expect(parsed.to).toEqual({ year: 2018, month: 12 });
+    expect(parsed.showAll).toBe(true);
+    expect(parsed.layers.flight).toBe(true);
+    expect(parsed.layers.bus).toBe(false);
   });
 });

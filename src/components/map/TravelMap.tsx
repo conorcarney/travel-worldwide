@@ -242,7 +242,9 @@ export default function TravelMap() {
       parseMapFilterSearch(searchParams).zoom ?? DEFAULT_MAP_ZOOM,
     ),
   );
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(
+    () => parseMapFilterSearch(searchParams).showAll,
+  );
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
   );
@@ -325,8 +327,8 @@ export default function TravelMap() {
         setRevealedRouteIds([]);
         setActiveJourney(null);
         setPlaybackPaused(false);
-        setPlaybackComplete(false);
-        setShowAll(false);
+        setPlaybackComplete(filter.showAll);
+        setShowAll(filter.showAll);
         setTripIndex(0);
         setPlayGeneration((value) => value + 1);
       } catch (err) {
@@ -371,6 +373,7 @@ export default function TravelMap() {
       speed: playbackSpeed,
       zoom: mapZoom,
       paused: playbackPaused,
+      showAll,
     });
     const current = window.location.search.replace(/^\?/, "");
     if (current === query) return;
@@ -390,6 +393,7 @@ export default function TravelMap() {
     playbackSpeed,
     mapZoom,
     playbackPaused,
+    showAll,
     pathname,
   ]);
 
@@ -576,7 +580,6 @@ export default function TravelMap() {
   const filterStatus = formatMapFilterStatus({
     rangeLabel,
     tags: tagFilters,
-    layers,
   });
   const asOfLabel = playbackFinished
     ? rangeLabel
@@ -647,6 +650,20 @@ export default function TravelMap() {
     setPlaybackMonth(timelineMonths[timelineMonths.length - 1] ?? null);
     setPlaybackComplete(true);
   }
+
+  useEffect(() => {
+    if (status !== "ready" || !showAll) return;
+    followCameraRef.current = null;
+    setActiveJourney(null);
+    setPlaybackPaused(false);
+    setPlaybackComplete(true);
+    setRevealedRouteIds(
+      yearFilteredRoutes
+        .filter((route) => parseYearMonth(route.date) !== null)
+        .map((route) => route.id),
+    );
+    setPlaybackMonth(timelineMonths[timelineMonths.length - 1] ?? null);
+  }, [status, showAll, yearFilteredRoutes, timelineMonths]);
 
   function toggleShowAll() {
     if (showAll) {
@@ -735,7 +752,7 @@ export default function TravelMap() {
         <>
           <MapFilterStatus
             dates={filterStatus.dates}
-            filters={filterStatus.filters}
+            tags={filterStatus.tags}
           />
           <MapControls
             layers={layers}

@@ -72,7 +72,11 @@ export default async function StatsPage() {
   const slideContent = {
     overall: (
       <>
-        <StatisticsView {...statisticsView} visited={visited} />
+        <StatisticsView
+          {...statisticsView}
+          visited={visited}
+          routes={routes}
+        />
         <CountryChecklist
           rows={countryChecklist}
           visitedCount={checklistSummary.visited}

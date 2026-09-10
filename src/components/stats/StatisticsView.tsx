@@ -6,6 +6,7 @@ import {
   type ExtendedTravelStatistics,
 } from "@/lib/map/travel-stats-page";
 import { formatTripDate } from "@/lib/map/timeline";
+import type { MapRoute } from "@/lib/validations/map-data";
 import {
   ModeTable,
   RankedTable,
@@ -46,8 +47,10 @@ export function StatisticsView({
   topAirports,
   topCountries,
   visited,
+  routes,
 }: Omit<StatisticsViewProps, "countriesByYear"> & {
   visited: Array<{ name: string; date?: string }>;
+  routes: MapRoute[];
 }) {
   const flights = modeStats(travel, "flight");
   const unPct =
@@ -102,9 +105,9 @@ export function StatisticsView({
         />
       </div>
 
-      <ModeTable travel={travel} />
+      <ModeTable travel={travel} routes={routes} />
 
-      <NewCountriesByYearChart visited={visited} initialYear={2013} />
+      <NewCountriesByYearChart visited={visited} />
 
       <RankedTable
         title="Most visited airports"

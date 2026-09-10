@@ -310,7 +310,7 @@ function YearVisitTimeline({
 
 export function NewCountriesByYearChart({
   visited,
-  initialYear = 2013,
+  initialYear,
 }: NewCountriesByYearChartProps) {
   const firstVisits = useMemo(() => listFirstCountryVisits(visited), [visited]);
   const counts = useMemo(
@@ -322,9 +322,9 @@ export function NewCountriesByYearChart({
     [counts],
   );
   const [selectedYear, setSelectedYear] = useState<number | null>(() =>
-    availableYears.has(initialYear)
+    initialYear !== undefined && availableYears.has(initialYear)
       ? initialYear
-      : (counts.at(-1)?.year ?? null),
+      : null,
   );
   const [hover, setHover] = useState<HoverTip | null>(null);
   const hostRef = useRef<HTMLElement>(null);

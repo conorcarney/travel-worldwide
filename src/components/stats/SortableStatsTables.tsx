@@ -1,18 +1,19 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import {
   formatDistanceKm,
   type TravelStatsSummary,
 } from "@/lib/map/distance";
-import { buildModeMapHref } from "@/lib/map/filter-url";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
 import {
   modeStats,
 } from "@/lib/map/travel-stats-page";
+import { summarizeTripsByYear } from "@/lib/stats/trips-by-year";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { useTableSort } from "@/lib/admin/use-table-sort";
-import type { TravelMode } from "@/lib/validations/map-data";
+import type { MapRoute, TravelMode } from "@/lib/validations/map-data";
+import { TripsByYearChart } from "@/components/stats/TripsByYearChart";
 
 const MODE_LABELS: Record<TravelMode, string> = {
   flight: "Flights",
@@ -117,39 +118,60 @@ export function RankedTable({
   );
 }
 
-function ModeRow({ row }: { row: ModeRowData }) {
-  const href = buildModeMapHref(row.mode);
+function ModeRow({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: ModeRowData;
+  selected: boolean;
+  onSelect: (mode: TravelMode) => void;
+}) {
+  function onRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(row.mode);
+    }
+  }
+
   return (
-    <tr className="border-b border-border/60 hover:bg-accent/10">
+    <tr
+      className={`cursor-pointer border-b border-border/60 hover:bg-accent/10 ${
+        selected ? "bg-accent/10" : ""
+      }`}
+      data-testid={`statistics-mode-${row.mode}`}
+      aria-pressed={selected}
+      tabIndex={0}
+      onClick={() => onSelect(row.mode)}
+      onKeyDown={onRowKeyDown}
+    >
       <td className="py-2.5 pr-4">
-        <Link
-          href={href}
-          className="inline-flex items-center gap-2 text-foreground hover:text-accent"
-          data-testid={`statistics-mode-${row.mode}`}
-        >
+        <span className="inline-flex items-center gap-2 text-foreground">
           <span
             aria-hidden
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ backgroundColor: ROUTE_COLORS[row.mode] }}
           />
           {row.label}
-        </Link>
+        </span>
       </td>
       <td className="py-2.5 pr-4 tabular-nums text-foreground">
-        <Link href={href} className="hover:text-accent">
-          {row.count.toLocaleString("en-GB")}
-        </Link>
+        {row.count.toLocaleString("en-GB")}
       </td>
       <td className="py-2.5 tabular-nums text-foreground">
-        <Link href={href} className="hover:text-accent">
-          {formatDistanceKm(row.distanceKm)}
-        </Link>
+        {formatDistanceKm(row.distanceKm)}
       </td>
     </tr>
   );
 }
 
-export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
+export function ModeTable({
+  travel,
+  routes,
+}: {
+  travel: TravelStatsSummary;
+  routes: MapRoute[];
+}) {
   const rows = MODE_ORDER.map((mode) => {
     const entry = modeStats(travel, mode);
     return {
@@ -160,6 +182,12 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
     };
   });
   const { sort, sorted, onSort } = useTableSort(rows, MODE_ACCESSORS);
+  const [selectedMode, setSelectedMode] = useState<TravelMode | null>(null);
+  const selectedRow = rows.find((row) => row.mode === selectedMode) ?? null;
+  const yearCounts = useMemo(
+    () => (selectedMode ? summarizeTripsByYear(routes, selectedMode) : []),
+    [routes, selectedMode],
+  );
 
   return (
     <section>
@@ -168,7 +196,7 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
       </h2>
       <p className="mt-1 text-sm text-muted">
         Counts and great-circle distances from mapped routes. Click a mode to
-        open it on the map.
+        see trips by year.
       </p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[28rem] text-left text-sm">
@@ -205,7 +233,12 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
           </thead>
           <tbody>
             {sorted.map((row) => (
-              <ModeRow key={row.mode} row={row} />
+              <ModeRow
+                key={row.mode}
+                row={row}
+                selected={row.mode === selectedMode}
+                onSelect={setSelectedMode}
+              />
             ))}
           </tbody>
           <tfoot>
@@ -221,6 +254,13 @@ export function ModeTable({ travel }: { travel: TravelStatsSummary }) {
           </tfoot>
         </table>
       </div>
+      {selectedRow ? (
+        <TripsByYearChart
+          mode={selectedRow.mode}
+          label={selectedRow.label}
+          counts={yearCounts}
+        />
+      ) : null}
     </section>
   );
 }
