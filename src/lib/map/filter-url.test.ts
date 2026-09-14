@@ -32,7 +32,35 @@ describe("parseMapFilterSearch", () => {
     expect(parsed.layers.flight).toBe(false);
     expect(parsed.layers.visited).toBe(false);
     expect(parsed.layers.bookmarks).toBe(true);
+    expect(parsed.layers.bus).toBe(false);
+  });
+
+  it("turns on slow land layers with show=", () => {
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams("show=bus,ferry,train,car"),
+    );
     expect(parsed.layers.bus).toBe(true);
+    expect(parsed.layers.ferry).toBe(true);
+    expect(parsed.layers.train).toBe(true);
+    expect(parsed.layers.car).toBe(true);
+    expect(parsed.layers.flight).toBe(true);
+    expect(parsed.detailed).toEqual({
+      road: true,
+      train: true,
+      ferry: true,
+    });
+  });
+
+  it("turns off detailed overlays with detailed=none", () => {
+    expect(
+      parseMapFilterSearch(new URLSearchParams("detailed=none")).detailed,
+    ).toEqual({ road: false, train: false, ferry: false });
+  });
+
+  it("reads a subset of detailed overlays", () => {
+    expect(
+      parseMapFilterSearch(new URLSearchParams("detailed=trains")).detailed,
+    ).toEqual({ road: false, train: true, ferry: false });
   });
 
   it("reads multiple tag params", () => {
@@ -60,6 +88,39 @@ describe("buildMapFilterQuery", () => {
         paused: false,
       }),
     ).toBe("speed=normal&zoom=6&paused=0");
+  });
+
+  it("writes show= when a slow land layer is turned on", () => {
+    expect(
+      buildMapFilterQuery({
+        from: DEFAULT_FILTER_START,
+        to: boundsMax,
+        boundsMin,
+        boundsMax,
+        tags: [],
+        layers: { ...DEFAULT_LAYERS, car: true },
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+      }),
+    ).toBe("show=car&speed=normal&zoom=6&paused=0");
+  });
+
+  it("writes detailed=none when overlays are off", () => {
+    expect(
+      buildMapFilterQuery({
+        from: DEFAULT_FILTER_START,
+        to: boundsMax,
+        boundsMin,
+        boundsMax,
+        tags: [],
+        layers: DEFAULT_LAYERS,
+        detailed: { road: false, train: false, ferry: false },
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+      }),
+    ).toBe("detailed=none&speed=normal&zoom=6&paused=0");
   });
 
   it("writes from, to, tag, hide, and show", () => {
@@ -209,7 +270,7 @@ describe("clampFilterRange", () => {
     });
   });
 
-  it("defaults a missing start to Oct 2015", () => {
+  it("defaults a missing start to Jan 2013", () => {
     expect(
       clampFilterRange(
         null,
@@ -218,7 +279,7 @@ describe("clampFilterRange", () => {
         { year: 2027, month: 12 },
       ),
     ).toEqual({
-      start: { year: 2015, month: 10 },
+      start: { year: 2013, month: 1 },
       end: { year: 2027, month: 12 },
     });
   });
@@ -265,12 +326,30 @@ describe("buildModeMapHref", () => {
       car: false,
       bookmarks: false,
     });
+    expect(parsed.detailed).toEqual({
+      road: false,
+      train: false,
+      ferry: false,
+    });
   });
 
-  it("hides every other default-on layer for car trips", () => {
+  it("hides visited and flights and shows detailed car routes", () => {
     expect(buildModeMapHref("car")).toBe(
-      "/map?from=1900-01&hide=visited%2Cflight%2Cferry%2Cbus%2Ctrain&all=1",
+      "/map?from=1900-01&hide=visited%2Cflight&show=car&detailed=routes&all=1",
     );
+  });
+
+  it("shows only detailed trains for train trips", () => {
+    const parsed = parseMapFilterSearch(
+      new URLSearchParams(buildModeMapHref("train").slice("/map?".length)),
+    );
+    expect(parsed.layers.train).toBe(false);
+    expect(parsed.layers.flight).toBe(false);
+    expect(parsed.detailed).toEqual({
+      road: false,
+      train: true,
+      ferry: false,
+    });
   });
 
   it("limits the date filter to one calendar year", () => {
@@ -284,5 +363,6 @@ describe("buildModeMapHref", () => {
     expect(parsed.showAll).toBe(true);
     expect(parsed.layers.flight).toBe(true);
     expect(parsed.layers.bus).toBe(false);
+    expect(parsed.detailed.road).toBe(false);
   });
 });

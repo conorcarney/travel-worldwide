@@ -2,6 +2,7 @@ import {
   mongoBlogSchema,
   mongoBookmarkCollectionSchema,
   mongoFlightSchema,
+  mongoLandRouteSchema,
   mongoSurfaceRouteSchema,
   mongoVisitedSchema,
   type MapBookmark,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/validations/map-data";
 import { curveFlightPath } from "@/lib/map/flight-curve";
 import { pathDistanceKm } from "@/lib/map/distance";
+import { decodePolyline } from "@/lib/map/polyline";
 
 const MODE_FROM_TYPE: Record<string, TravelMode> = {
   Bus: "bus",
@@ -19,14 +21,26 @@ const MODE_FROM_TYPE: Record<string, TravelMode> = {
   Car: "car",
 };
 
-/** Parse Flights "lng, lat" coordinate strings into Leaflet [lat, lng]. */
-export function parseLngLatString(value: string): [number, number] | null {
+/** Parse a "a, b" pair into two numbers. */
+function parseCoordPair(value: string): [number, number] | null {
   const parts = value.split(",").map((part) => Number(part.trim()));
   if (parts.length !== 2 || parts.some((n) => Number.isNaN(n))) {
     return null;
   }
-  const [lng, lat] = parts;
+  return [parts[0]!, parts[1]!];
+}
+
+/** Parse Flights "lng, lat" coordinate strings into Leaflet [lat, lng]. */
+export function parseLngLatString(value: string): [number, number] | null {
+  const pair = parseCoordPair(value);
+  if (!pair) return null;
+  const [lng, lat] = pair;
   return [lat, lng];
+}
+
+/** Parse land-route form "lat, lng" strings into Leaflet [lat, lng]. */
+export function parseLatLngString(value: string): [number, number] | null {
+  return parseCoordPair(value);
 }
 
 function isFiniteCoord(value: unknown): value is number | string {
@@ -41,6 +55,12 @@ function isFiniteCoord(value: unknown): value is number | string {
 export function formatLngLatString(lng: unknown, lat: unknown): string {
   if (!isFiniteCoord(lng) || !isFiniteCoord(lat)) return "";
   return `${lng}, ${lat}`;
+}
+
+/** Format stored lat/lng for the land-routes admin form. */
+export function formatLatLngString(lat: unknown, lng: unknown): string {
+  if (!isFiniteCoord(lat) || !isFiniteCoord(lng)) return "";
+  return `${lat}, ${lng}`;
 }
 
 function docId(value: unknown, fallback: string): string {
@@ -122,6 +142,57 @@ export function normalizeSurfaceRoutes(data: unknown[]): MapRoute[] {
   return routes;
 }
 
+export type EncodedLandRoute = {
+  id: string;
+  path: [number, number][];
+  distance: number;
+  duration: number;
+  date: string;
+  tags: string;
+  type: "Car" | "Bus" | "Train" | "Ferry" | "";
+  fromTerminal: string;
+  toTerminal: string;
+};
+
+export type EncodedOverlayKind = "road" | "train" | "ferry";
+
+export function encodedOverlayKind(route: EncodedLandRoute): EncodedOverlayKind {
+  if (route.type === "Train") return "train";
+  if (route.type === "Ferry") return "ferry";
+  return "road";
+}
+
+/** Decode batch-encoded LandRoutes documents into Leaflet paths. */
+export function normalizeLandRoutes(data: unknown[]): EncodedLandRoute[] {
+  const routes: EncodedLandRoute[] = [];
+
+  data.forEach((item, index) => {
+    const parsed = mongoLandRouteSchema.safeParse(item);
+    if (!parsed.success) return;
+
+    const decoded = decodePolyline(parsed.data.route.geometry);
+    const path: [number, number][] = decoded.map((point) => [
+      point.lat,
+      point.lng,
+    ]);
+    if (path.length < 2) return;
+
+    routes.push({
+      id: docId(parsed.data._id, `land-${index}`),
+      path,
+      distance: parsed.data.route.distance,
+      duration: parsed.data.route.duration,
+      date: parsed.data.date ?? "",
+      tags: parsed.data.tags ?? "",
+      type: parsed.data.type ?? "",
+      fromTerminal: parsed.data.fromTerminal?.name?.trim() ?? "",
+      toTerminal: parsed.data.toTerminal?.name?.trim() ?? "",
+    });
+  });
+
+  return routes;
+}
+
 export function normalizeBookmarks(data: unknown[]): MapBookmark[] {
   const bookmarks: MapBookmark[] = [];
 
@@ -166,3 +237,105 @@ export const ROUTE_COLORS: Record<TravelMode, string> = {
   train: "#a855f7",
   car: "#14b8a6",
 };
+
+/** Overlay colour for detailed car/bus LandRoutes — same as the Cars layer. */
+export const ENCODED_ROUTE_COLOR = ROUTE_COLORS.car;
+/** Overlay colour for detailed train paths — same as the Trains layer. */
+export const ENCODED_TRAIN_COLOR = ROUTE_COLORS.train;
+/** Overlay colour for detailed ferry paths — same as the Ferries layer. */
+export const ENCODED_FERRY_COLOR = ROUTE_COLORS.ferry;
+
+const EXISTING_TRAIN_SPEED_KMH = 80;
+const EXISTING_FERRY_SPEED_KMH = 25;
+
+/** Straight-line LandRoutes stand-in from the live train/ferry layer. */
+export function encodedFromExistingRoute(
+  route: MapRoute,
+  type: "Train" | "Ferry",
+): EncodedLandRoute {
+  const kmh = type === "Ferry" ? EXISTING_FERRY_SPEED_KMH : EXISTING_TRAIN_SPEED_KMH;
+  return {
+    id: route.id,
+    path: route.path,
+    distance: Math.round(route.distanceKm * 1000),
+    duration: Math.round((route.distanceKm / kmh) * 3600),
+    date: route.date,
+    tags: route.tags ?? "",
+    type,
+    fromTerminal: route.from,
+    toTerminal: route.to,
+  };
+}
+
+/** OSM-encoded overlays, plus existing train/ferry paths when none were matched. */
+export function mergeEncodedWithExisting(
+  encoded: EncodedLandRoute[],
+  surface: MapRoute[],
+): {
+  road: EncodedLandRoute[];
+  train: EncodedLandRoute[];
+  ferry: EncodedLandRoute[];
+} {
+  const road: EncodedLandRoute[] = [];
+  const train: EncodedLandRoute[] = [];
+  const ferry: EncodedLandRoute[] = [];
+  const encodedIds = new Set(encoded.map((route) => route.id));
+
+  for (const route of encoded) {
+    const kind = encodedOverlayKind(route);
+    if (kind === "train") train.push(route);
+    else if (kind === "ferry") ferry.push(route);
+    else road.push(route);
+  }
+
+  for (const route of surface) {
+    if (encodedIds.has(route.id)) continue;
+    if (route.mode === "train") {
+      train.push(encodedFromExistingRoute(route, "Train"));
+    } else if (route.mode === "ferry") {
+      ferry.push(encodedFromExistingRoute(route, "Ferry"));
+    }
+  }
+
+  return { road, train, ferry };
+}
+
+export function flattenEncodedOverlays(overlays: {
+  road: EncodedLandRoute[];
+  train: EncodedLandRoute[];
+  ferry: EncodedLandRoute[];
+}): EncodedLandRoute[] {
+  return [...overlays.road, ...overlays.train, ...overlays.ferry];
+}
+
+/** Replace straight-line land paths with matching detailed geometry. */
+export function applyDetailedGeometry(
+  routes: MapRoute[],
+  encoded: EncodedLandRoute[],
+): MapRoute[] {
+  if (encoded.length === 0) return routes;
+  const byId = new Map(encoded.map((item) => [item.id, item]));
+  return routes.map((route) => {
+    const detailed = byId.get(route.id);
+    if (!detailed || detailed.path.length < 2) return route;
+    const distanceKm =
+      detailed.distance > 0
+        ? detailed.distance / 1000
+        : pathDistanceKm(detailed.path);
+    return { ...route, path: detailed.path, distanceKm };
+  });
+}
+
+export function detailedOverlayForMode(
+  mode: TravelMode,
+): EncodedOverlayKind | null {
+  if (mode === "train") return "train";
+  if (mode === "ferry") return "ferry";
+  if (mode === "car" || mode === "bus") return "road";
+  return null;
+}
+
+export function detailedColorForMode(mode: TravelMode): string | null {
+  if (!detailedOverlayForMode(mode)) return null;
+  return ROUTE_COLORS[mode];
+}

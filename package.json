@@ -1,6 +1,6 @@
 {
   "name": "ahbegrand",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "predev": "node ./scripts/copy-maplibre-worker.mjs",
@@ -10,6 +10,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
+    "encode-land-routes": "node scripts/encode-land-routes.mjs",
+    "encode-rail-ferry-routes": "node scripts/encode-rail-ferry-routes.mjs",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",

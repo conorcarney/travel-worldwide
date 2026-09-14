@@ -21,7 +21,7 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   });
   await expect(page.getByTestId("map-controls")).toBeVisible();
   await expect(page.getByTestId("map-filter-status")).toBeVisible();
-  await expect(page.getByTestId("year-start-value")).toHaveText("Oct 2015");
+  await expect(page.getByTestId("year-start-value")).toHaveText("Jan 2013");
   const from = await page.getByTestId("year-start-value").textContent();
   const to = await page.getByTestId("year-end-value").textContent();
   const dates = from === to ? from : `${from} – ${to}`;
@@ -30,6 +30,26 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("layer-visited")).toBeChecked();
   await expect(page.getByTestId("layer-flight")).toBeChecked();
   await expect(page.getByTestId("layer-bookmarks")).not.toBeChecked();
+  await expect(page.getByTestId("overlay-detailed-routes")).toBeChecked();
+  await expect(page.getByTestId("overlay-detailed-trains")).toBeChecked();
+  await expect(page.getByTestId("overlay-detailed-ferries")).toBeChecked();
+  await expect(page.getByTestId("slow-loading-toggle")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(page.getByTestId("layer-ferry")).toHaveCount(0);
+  await page.getByTestId("slow-loading-toggle").click();
+  await expect(page.getByTestId("slow-loading-toggle")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByTestId("overlay-detailed-routes")).toHaveCount(0);
+  await expect(page.getByTestId("overlay-detailed-trains")).toHaveCount(0);
+  await expect(page.getByTestId("overlay-detailed-ferries")).toHaveCount(0);
+  await expect(page.getByTestId("layer-ferry")).toBeChecked();
+  await expect(page.getByTestId("layer-bus")).toBeChecked();
+  await expect(page.getByTestId("layer-train")).toBeChecked();
+  await expect(page.getByTestId("layer-car")).toBeChecked();
   await expect(page.getByTestId("year-start")).toBeVisible();
   await expect(page.getByTestId("year-end")).toBeVisible();
   await expect(page.getByTestId("year-start-input")).toBeVisible();
@@ -121,6 +141,7 @@ test.describe("API routes", () => {
     "/api/buses-trains-ferries",
     "/api/maps-me-bookmarks",
     "/api/blogs",
+    "/api/land-routes",
   ] as const;
 
   for (const route of publicRoutes) {

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { BlogBody } from "@/components/blogs/BlogBody";
 import { isAdminSession } from "@/lib/authz";
+import { readAuthSession } from "@/lib/auth-session";
 import { stripBlogMarkdown } from "@/lib/blog-body";
 import { loadBlogBySlug } from "@/lib/blog-pages";
 import { isPublicBlog } from "@/lib/validations/blog-write";
@@ -15,7 +16,7 @@ type BlogDetailPageProps = {
 };
 
 async function loadBlogForViewer(slug: string) {
-  const session = await auth();
+  const session = await readAuthSession(() => auth());
   return loadBlogBySlug(slug, { allowUnlisted: isAdminSession(session) });
 }
 

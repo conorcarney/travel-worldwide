@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminSession } from "@/lib/authz";
+import { readAuthSession } from "@/lib/auth-session";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ type LoginPageProps = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const session = await auth();
+  const session = await readAuthSession(() => auth());
   const params = await searchParams;
   const callbackUrl =
     params.callbackUrl && params.callbackUrl.startsWith("/")

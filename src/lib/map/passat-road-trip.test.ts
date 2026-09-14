@@ -52,6 +52,11 @@ describe("buildPassatCountryMapHref", () => {
       car: true,
       bookmarks: false,
     });
+    expect(parsed.detailed).toEqual({
+      road: true,
+      train: false,
+      ferry: true,
+    });
   });
 
   it("uses 2025 for Kazakhstan and 2026 for Kazakhstan 2", () => {

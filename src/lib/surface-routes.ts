@@ -1,6 +1,11 @@
 import { ObjectId, type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
+import {
+  deleteEncodedLandRoute,
+  upsertEncodedLandRoute,
+  type EncodedRouteSource,
+} from "@/lib/land-routes-store";
 import { getDb, isMongoConfigured } from "@/lib/mongodb";
 import {
   type SurfaceRouteRecord,
@@ -13,6 +18,13 @@ export {
   type SurfaceRouteRecord,
   type SurfaceRouteWriteInput,
 } from "@/lib/validations/surface-route-write";
+
+export type { EncodedRouteSource };
+
+export type SurfaceRouteSaveResult = {
+  route: SurfaceRouteRecord;
+  encodedSource: EncodedRouteSource;
+};
 
 export class SurfaceRouteStoreError extends Error {
   status: number;
@@ -63,20 +75,27 @@ export function toSurfaceRouteDocument(input: SurfaceRouteWriteInput) {
 
 export async function createSurfaceRoute(
   input: SurfaceRouteWriteInput,
-): Promise<SurfaceRouteRecord> {
+): Promise<SurfaceRouteSaveResult> {
   const db = await requireSurfaceRoutesDb();
   const document = toSurfaceRouteDocument(input);
   const result = await surfaceRoutesCollection(db).insertOne(document);
-  return {
+  const route: SurfaceRouteRecord = {
     _id: String(result.insertedId),
     ...document,
   };
+  const encodedSource = await upsertEncodedLandRoute(route._id, input).catch(
+    (error: unknown) => {
+      console.error("Failed to encode land route", error);
+      return "existing" as const;
+    },
+  );
+  return { route, encodedSource };
 }
 
 export async function updateSurfaceRoute(
   id: string,
   input: SurfaceRouteWriteInput,
-): Promise<SurfaceRouteRecord> {
+): Promise<SurfaceRouteSaveResult> {
   const db = await requireSurfaceRoutesDb();
   const objectId = parseObjectId(id);
   const document = toSurfaceRouteDocument(input);
@@ -91,7 +110,14 @@ export async function updateSurfaceRoute(
   }
 
   const [serialized] = serializeDocs([result]) as SurfaceRouteRecord[];
-  return serialized!;
+  const route = serialized!;
+  const encodedSource = await upsertEncodedLandRoute(id, input).catch(
+    (error: unknown) => {
+      console.error("Failed to encode land route", error);
+      return "existing" as const;
+    },
+  );
+  return { route, encodedSource };
 }
 
 export async function deleteSurfaceRoute(id: string): Promise<void> {
@@ -101,4 +127,7 @@ export async function deleteSurfaceRoute(id: string): Promise<void> {
   if (result.deletedCount === 0) {
     throw new SurfaceRouteStoreError("Route not found", 404);
   }
+  await deleteEncodedLandRoute(id).catch((error: unknown) => {
+    console.error("Failed to delete encoded land route", error);
+  });
 }

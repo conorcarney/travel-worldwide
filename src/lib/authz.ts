@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { readAuthSession } from "@/lib/auth-session";
 import { isAdminSession } from "@/lib/session-roles";
 
 export { isAdminSession } from "@/lib/session-roles";
 
 export async function requireAdminApi() {
-  const session = await auth();
+  const session = await readAuthSession(() => auth());
   if (!isAdminSession(session)) {
     return {
       session: null,

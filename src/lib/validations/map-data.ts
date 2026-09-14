@@ -18,6 +18,40 @@ export const mongoFlightSchema = z.object({
   media: z.string().optional(),
 });
 
+export const mongoLandRouteSchema = z.object({
+  _id: z.union([z.string(), z.number()]).optional(),
+  departure: z.object({
+    lat: z.coerce.number().finite(),
+    lng: z.coerce.number().finite(),
+  }),
+  arrival: z.object({
+    lat: z.coerce.number().finite(),
+    lng: z.coerce.number().finite(),
+  }),
+  date: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
+  type: z.enum(["Car", "Bus", "Train", "Ferry"]).optional(),
+  fromTerminal: z
+    .object({
+      lat: z.coerce.number().finite(),
+      lng: z.coerce.number().finite(),
+      name: z.string().optional().default(""),
+    })
+    .optional(),
+  toTerminal: z
+    .object({
+      lat: z.coerce.number().finite(),
+      lng: z.coerce.number().finite(),
+      name: z.string().optional().default(""),
+    })
+    .optional(),
+  route: z.object({
+    geometry: z.string().min(1),
+    distance: z.coerce.number().finite(),
+    duration: z.coerce.number().finite(),
+  }),
+});
+
 export const mongoSurfaceRouteSchema = z.object({
   _id: z.union([z.string(), z.number()]).optional(),
   departure: z.string(),
@@ -102,6 +136,7 @@ export const mapBookmarkSchema = z.object({
 });
 
 export type MongoFlight = z.infer<typeof mongoFlightSchema>;
+export type MongoLandRoute = z.infer<typeof mongoLandRouteSchema>;
 export type MongoSurfaceRoute = z.infer<typeof mongoSurfaceRouteSchema>;
 export type MongoVisited = z.infer<typeof mongoVisitedSchema>;
 export type MongoBlog = z.infer<typeof mongoBlogSchema>;

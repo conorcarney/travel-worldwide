@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { isInvalidSessionError } from "@/lib/auth-session";
 import { COLLECTIONS } from "@/lib/collections";
 import { getDb } from "@/lib/mongodb";
 
@@ -16,6 +17,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
+  },
+  logger: {
+    error(error) {
+      // Leftover cookies from an old AUTH_SECRET show up as logged-out, not a page crash.
+      if (isInvalidSessionError(error)) return;
+      console.error(error);
+    },
   },
   providers: [
     Credentials({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminSession } from "@/lib/authz";
+import { readAuthSession } from "@/lib/auth-session";
 import { loadBlogBySlug } from "@/lib/blog-pages";
 import { BlogStoreError } from "@/lib/blogs";
 import { isMongoConfigured } from "@/lib/mongodb";
@@ -12,7 +13,7 @@ type RouteContext = {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { slug } = await context.params;
-    const session = await auth();
+    const session = await readAuthSession(() => auth());
     const blog = await loadBlogBySlug(slug, {
       allowUnlisted: isAdminSession(session),
     });

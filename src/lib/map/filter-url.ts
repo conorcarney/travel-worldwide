@@ -6,6 +6,12 @@ import {
 import { parseYearMonth, yearMonthKey, type YearMonth } from "@/lib/map/timeline";
 import { clampYearMonth } from "@/lib/map/years";
 
+export type DetailedOverlayVisibility = {
+  road: boolean;
+  train: boolean;
+  ferry: boolean;
+};
+
 export type LayerVisibility = {
   visited: boolean;
   bookmarks: boolean;
@@ -26,18 +32,98 @@ export type MapLayerKey = (typeof MAP_LAYER_KEYS)[number];
 export const DEFAULT_LAYERS: LayerVisibility = {
   visited: true,
   flight: true,
-  ferry: true,
-  bus: true,
-  train: true,
-  car: true,
+  ferry: false,
+  bus: false,
+  train: false,
+  car: false,
   bookmarks: false,
 };
+
+export const DEFAULT_DETAILED_OVERLAYS: DetailedOverlayVisibility = {
+  road: true,
+  train: true,
+  ferry: true,
+};
+
+const DETAILED_PARAM_KEYS = ["routes", "trains", "ferries"] as const;
+type DetailedParamKey = (typeof DETAILED_PARAM_KEYS)[number];
+
+function isDetailedParamKey(value: string): value is DetailedParamKey {
+  return (DETAILED_PARAM_KEYS as readonly string[]).includes(value);
+}
+
+/** Straight-line land modes; hidden until the Slow Loading? control is opened. */
+export const SLOW_MAP_LAYER_KEYS = [
+  "ferry",
+  "bus",
+  "train",
+  "car",
+] as const satisfies readonly MapLayerKey[];
+
+export function layerVisibilityParams(layers: LayerVisibility) {
+  return {
+    hide: MAP_LAYER_KEYS.filter((key) => DEFAULT_LAYERS[key] && !layers[key]),
+    show: MAP_LAYER_KEYS.filter((key) => !DEFAULT_LAYERS[key] && layers[key]),
+  };
+}
+
+function applyLayerVisibilityParams(
+  params: URLSearchParams,
+  layers: LayerVisibility,
+) {
+  const { hide, show } = layerVisibilityParams(layers);
+  if (hide.length > 0) params.set("hide", hide.join(","));
+  if (show.length > 0) params.set("show", show.join(","));
+}
+
+export function detailedOverlaysFromSearch(
+  search: Pick<URLSearchParams, "get">,
+): DetailedOverlayVisibility {
+  const raw = search.get("detailed");
+  if (raw === null) return { ...DEFAULT_DETAILED_OVERLAYS };
+  const parts = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0 || parts.includes("none")) {
+    return { road: false, train: false, ferry: false };
+  }
+  const keys = new Set(parts.filter(isDetailedParamKey));
+  return {
+    road: keys.has("routes"),
+    train: keys.has("trains"),
+    ferry: keys.has("ferries"),
+  };
+}
+
+function detailedOverlayParam(detailed: DetailedOverlayVisibility): string | null {
+  const on: DetailedParamKey[] = [];
+  if (detailed.road) on.push("routes");
+  if (detailed.train) on.push("trains");
+  if (detailed.ferry) on.push("ferries");
+  if (
+    detailed.road === DEFAULT_DETAILED_OVERLAYS.road &&
+    detailed.train === DEFAULT_DETAILED_OVERLAYS.train &&
+    detailed.ferry === DEFAULT_DETAILED_OVERLAYS.ferry
+  ) {
+    return null;
+  }
+  return on.length === 0 ? "none" : on.join(",");
+}
+
+export function applyDetailedOverlayParams(
+  params: URLSearchParams,
+  detailed: DetailedOverlayVisibility,
+) {
+  const value = detailedOverlayParam(detailed);
+  if (value) params.set("detailed", value);
+}
 
 /** Default map zoom when the URL omits `zoom`. */
 export const DEFAULT_MAP_ZOOM = 6;
 
 /** Default date-filter start when the URL omits `from`. */
-export const DEFAULT_FILTER_START: YearMonth = { year: 2015, month: 10 };
+export const DEFAULT_FILTER_START: YearMonth = { year: 2013, month: 1 };
 
 /**
  * Highest zoom restored from the URL on load.
@@ -134,6 +220,7 @@ export type MapFilterSearch = {
   to: YearMonth | null;
   tags: string[];
   layers: LayerVisibility;
+  detailed: DetailedOverlayVisibility;
   speed: PlaybackSpeedId;
   zoom: number;
   paused: boolean;
@@ -149,6 +236,7 @@ export function parseMapFilterSearch(search: {
     to: parseYearMonthParam(search.get("to")),
     tags: parseTagParams(search),
     layers: layersFromSearch(search),
+    detailed: detailedOverlaysFromSearch(search),
     speed: parsePlaybackSpeedParam(search.get("speed")),
     zoom: parseMapZoomParam(search.get("zoom")),
     paused: parsePausedParam(search),
@@ -198,6 +286,7 @@ export function buildMapFilterQuery(input: {
   boundsMax: YearMonth;
   tags: string[];
   layers: LayerVisibility;
+  detailed?: DetailedOverlayVisibility;
   speed?: PlaybackSpeedId;
   zoom?: number;
   paused?: boolean;
@@ -225,14 +314,11 @@ export function buildMapFilterQuery(input: {
     params.append("tag", trimmed);
   }
 
-  const hide = MAP_LAYER_KEYS.filter(
-    (key) => DEFAULT_LAYERS[key] && !input.layers[key],
+  applyLayerVisibilityParams(params, input.layers);
+  applyDetailedOverlayParams(
+    params,
+    input.detailed ?? DEFAULT_DETAILED_OVERLAYS,
   );
-  const show = MAP_LAYER_KEYS.filter(
-    (key) => !DEFAULT_LAYERS[key] && input.layers[key],
-  );
-  if (hide.length > 0) params.set("hide", hide.join(","));
-  if (show.length > 0) params.set("show", show.join(","));
 
   const speed = input.speed ?? DEFAULT_PLAYBACK_SPEED;
   params.set("speed", speed);
@@ -259,18 +345,32 @@ export function buildCountryVisitMapHref(country: string, date: string): string 
   return `/map?${params.toString()}`;
 }
 
+/** Checkbox + overlay state that shows only this travel mode. */
+export function isolatedModeVisibility(mode: TravelMode): {
+  layers: LayerVisibility;
+  detailed: DetailedOverlayVisibility;
+} {
+  return {
+    layers: {
+      visited: false,
+      flight: mode === "flight",
+      ferry: false,
+      bus: mode === "bus",
+      train: false,
+      car: mode === "car",
+      bookmarks: false,
+    },
+    detailed: {
+      road: mode === "car" || mode === "bus",
+      train: mode === "train",
+      ferry: mode === "ferry",
+    },
+  };
+}
+
 /** Stats → map: only this travel mode. Pass a year to limit the date filter. */
 export function buildModeMapHref(mode: TravelMode, year?: number): string {
-  const layers: LayerVisibility = {
-    visited: false,
-    flight: false,
-    ferry: false,
-    bus: false,
-    train: false,
-    car: false,
-    bookmarks: false,
-    [mode]: true,
-  };
+  const { layers, detailed } = isolatedModeVisibility(mode);
   const params = new URLSearchParams();
   if (year !== undefined) {
     params.set("from", formatYearMonthParam({ year, month: 1 }));
@@ -278,10 +378,8 @@ export function buildModeMapHref(mode: TravelMode, year?: number): string {
   } else {
     params.set("from", formatYearMonthParam({ year: 1900, month: 1 }));
   }
-  const hide = MAP_LAYER_KEYS.filter(
-    (key) => DEFAULT_LAYERS[key] && !layers[key],
-  );
-  if (hide.length > 0) params.set("hide", hide.join(","));
+  applyLayerVisibilityParams(params, layers);
+  applyDetailedOverlayParams(params, detailed);
   params.set("all", "1");
   return `/map?${params.toString()}`;
 }

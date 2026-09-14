@@ -7,6 +7,8 @@ import {
   updateSurfaceRoute,
 } from "@/lib/surface-routes";
 
+export const maxDuration = 60;
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -29,8 +31,8 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const route = await updateSurfaceRoute(id, parsed.data);
-    return NextResponse.json({ ok: true, data: route });
+    const { route, encodedSource } = await updateSurfaceRoute(id, parsed.data);
+    return NextResponse.json({ ok: true, data: route, encodedSource });
   } catch (error) {
     if (error instanceof SurfaceRouteStoreError) {
       return NextResponse.json(

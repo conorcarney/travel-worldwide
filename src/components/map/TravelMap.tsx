@@ -19,12 +19,19 @@ import {
 import "leaflet/dist/leaflet.css";
 import { fetchApiList } from "@/lib/map/parse-api";
 import {
+  applyDetailedGeometry,
+  detailedColorForMode,
+  detailedOverlayForMode,
+  flattenEncodedOverlays,
   normalizeBookmarks,
   normalizeBlogs,
   normalizeFlights,
+  normalizeLandRoutes,
   normalizeSurfaceRoutes,
   normalizeVisited,
+  mergeEncodedWithExisting,
   ROUTE_COLORS,
+  type EncodedLandRoute,
 } from "@/lib/map/normalize";
 import {
   blogCountryNameSet,
@@ -76,8 +83,14 @@ import {
   DEFAULT_PLAYBACK_SPEED,
   parseMapFilterSearch,
   resolveInitialMapZoom,
+  SLOW_MAP_LAYER_KEYS,
 } from "@/lib/map/filter-url";
 import { formatMapFilterStatus } from "@/lib/map/filter-summary";
+import {
+  findPlayableTripIndex,
+  isModeVisibleOnMap,
+  type DetailedOverlayVisibility,
+} from "@/lib/map/mode-visibility";
 import {
   MapControls,
   type LayerVisibility,
@@ -146,6 +159,11 @@ function journeyTitle(route: MapRoute): string {
   return date ? `${route.from} → ${route.to} · ${date}` : `${route.from} → ${route.to}`;
 }
 
+function initialSlowLoading(search: URLSearchParams) {
+  const layers = parseMapFilterSearch(search).layers;
+  return SLOW_MAP_LAYER_KEYS.every((key) => layers[key]);
+}
+
 const PLAYBACK_BAR_BUTTON =
   "inline-flex items-center gap-1.5 rounded-md border border-border bg-transparent px-2.5 py-0.5 text-foreground transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-foreground";
 
@@ -188,6 +206,8 @@ function SkipBackIcon() {
     </svg>
   );
 }
+
+const MAP_LOAD_SPINNER_MS = 1000;
 
 function SkipForwardIcon() {
   return (
@@ -248,7 +268,26 @@ export default function TravelMap() {
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
   );
+  const [encodedRoutes, setEncodedRoutes] = useState<EncodedLandRoute[]>([]);
+  const [slowLoading, setSlowLoading] = useState(() =>
+    initialSlowLoading(searchParams),
+  );
+  const [showDetailedRoutes, setShowDetailedRoutes] = useState(
+    () => parseMapFilterSearch(searchParams).detailed.road,
+  );
+  const [showDetailedTrains, setShowDetailedTrains] = useState(
+    () => parseMapFilterSearch(searchParams).detailed.train,
+  );
+  const [showDetailedFerries, setShowDetailedFerries] = useState(
+    () => parseMapFilterSearch(searchParams).detailed.ferry,
+  );
+  const [holdSpinner, setHoldSpinner] = useState(true);
   const layersRef = useRef(layers);
+  const detailedRef = useRef<DetailedOverlayVisibility>({
+    road: showDetailedRoutes,
+    train: showDetailedTrains,
+    ferry: showDetailedFerries,
+  });
   // Keep follow-cam on the overview/user zoom — never auto flyTo ~15.
   const userFollowZoomRef = useRef<number | null>(mapZoom);
   const followCameraRef = useRef<FollowCameraState | null>(null);
@@ -256,6 +295,13 @@ export default function TravelMap() {
   useEffect(() => {
     userFollowZoomRef.current = mapZoom;
   }, [mapZoom]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setHoldSpinner(false);
+    }, MAP_LOAD_SPINNER_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,14 +312,24 @@ export default function TravelMap() {
       try {
         setError(null);
         setStatus("loading");
-        const [visitedRes, flightsRes, surfaceRes, bookmarksRes, blogsRes] =
-          await Promise.all([
-            fetchApiList("/api/visited", request),
-            fetchApiList("/api/flights", request),
-            fetchApiList("/api/buses-trains-ferries", request),
-            fetchApiList("/api/maps-me-bookmarks", request),
-            fetchApiList("/api/blogs", request),
-          ]);
+        const [
+          visitedRes,
+          flightsRes,
+          surfaceRes,
+          bookmarksRes,
+          blogsRes,
+          landRes,
+        ] = await Promise.all([
+          fetchApiList("/api/visited", request),
+          fetchApiList("/api/flights", request),
+          fetchApiList("/api/buses-trains-ferries", request),
+          fetchApiList("/api/maps-me-bookmarks", request),
+          fetchApiList("/api/blogs", request),
+          fetchApiList("/api/land-routes", request).catch(() => ({
+            ok: false as const,
+            data: [] as unknown[],
+          })),
+        ]);
 
         if (cancelled) return;
 
@@ -307,6 +363,9 @@ export default function TravelMap() {
         setVisited(visitedCountries);
         setBlogs(blogPosts);
         setRoutes(allRoutes);
+        setEncodedRoutes(
+          landRes.ok ? normalizeLandRoutes(landRes.data ?? []) : [],
+        );
         setBookmarks(mapBookmarks);
         setRangeMin(bounds.min);
         setRangeMax(bounds.max);
@@ -370,6 +429,11 @@ export default function TravelMap() {
       boundsMax: rangeMax,
       tags: tagFilters,
       layers,
+      detailed: {
+        road: showDetailedRoutes,
+        train: showDetailedTrains,
+        ferry: showDetailedFerries,
+      },
       speed: playbackSpeed,
       zoom: mapZoom,
       paused: playbackPaused,
@@ -390,6 +454,9 @@ export default function TravelMap() {
     rangeMax,
     tagFilters,
     layers,
+    showDetailedRoutes,
+    showDetailedTrains,
+    showDetailedFerries,
     playbackSpeed,
     mapZoom,
     playbackPaused,
@@ -399,9 +466,38 @@ export default function TravelMap() {
 
   const availableTags = useMemo(() => collectRouteTags(routes), [routes]);
 
+  const encodedByKind = useMemo(
+    () => mergeEncodedWithExisting(encodedRoutes, routes),
+    [encodedRoutes, routes],
+  );
+
+  const detailedOverlays = useMemo<DetailedOverlayVisibility>(
+    () => ({
+      road: showDetailedRoutes,
+      train: showDetailedTrains,
+      ferry: showDetailedFerries,
+    }),
+    [showDetailedRoutes, showDetailedTrains, showDetailedFerries],
+  );
+
+  const displayRoutes = useMemo(() => {
+    const selected = flattenEncodedOverlays({
+      road: showDetailedRoutes ? encodedByKind.road : [],
+      train: showDetailedTrains ? encodedByKind.train : [],
+      ferry: showDetailedFerries ? encodedByKind.ferry : [],
+    });
+    return applyDetailedGeometry(routes, selected);
+  }, [
+    routes,
+    encodedByKind,
+    showDetailedRoutes,
+    showDetailedTrains,
+    showDetailedFerries,
+  ]);
+
   const taggedRoutes = useMemo(
-    () => filterRoutesByTags(routes, tagFilters),
-    [routes, tagFilters],
+    () => filterRoutesByTags(displayRoutes, tagFilters),
+    [displayRoutes, tagFilters],
   );
 
   const yearFilteredRoutes = useMemo(
@@ -472,6 +568,10 @@ export default function TravelMap() {
   }, [layers]);
 
   useEffect(() => {
+    detailedRef.current = detailedOverlays;
+  }, [detailedOverlays]);
+
+  useEffect(() => {
     if (status !== "ready" || showAll || playbackComplete) return;
 
     if (tripQueue.length === 0) {
@@ -481,7 +581,24 @@ export default function TravelMap() {
       return;
     }
 
-    if (tripIndex >= tripQueue.length) {
+    const playable = findPlayableTripIndex(
+      tripQueue,
+      tripIndex,
+      1,
+      (routeId) => {
+        const candidate = routeById.get(routeId);
+        return Boolean(
+          candidate &&
+            isModeVisibleOnMap(
+              candidate.mode,
+              layersRef.current,
+              detailedRef.current,
+            ),
+        );
+      },
+    );
+
+    if (playable === null) {
       followCameraRef.current = null;
       setActiveJourney(null);
       setShowAll(true);
@@ -490,13 +607,9 @@ export default function TravelMap() {
       return;
     }
 
-    let playable = tripIndex;
-    while (playable < tripQueue.length) {
-      const candidate = routeById.get(tripQueue[playable]!);
-      if (candidate && layersRef.current[candidate.mode]) break;
-      playable += 1;
-    }
-    setRevealedRouteIds(tripQueue.slice(0, Math.min(playable + 1, tripQueue.length)));
+    setRevealedRouteIds(
+      tripQueue.slice(0, Math.min(playable + 1, tripQueue.length)),
+    );
     if (playable !== tripIndex) {
       setTripIndex(playable);
       return;
@@ -515,6 +628,7 @@ export default function TravelMap() {
     tripQueue,
     routeById,
     playGeneration,
+    detailedOverlays,
   ]);
 
   const playbackCursor = playbackMonth;
@@ -534,7 +648,7 @@ export default function TravelMap() {
   );
 
   const visibleRoutes = yearFilteredRoutes.filter((route) => {
-    if (!layers[route.mode]) return false;
+    if (!isModeVisibleOnMap(route.mode, layers, detailedOverlays)) return false;
     if (playbackFinished) return true;
     return revealedRouteIdSet.has(route.id);
   });
@@ -568,8 +682,14 @@ export default function TravelMap() {
       ? filterByPlaybackMonth(yearFilteredRoutes, cutoff, {
         includeUndatedWhenComplete: true,
         playbackComplete: true,
-      })
-      : yearFilteredRoutes.filter((route) => revealedRouteIdSet.has(route.id)),
+      }).filter((route) =>
+        isModeVisibleOnMap(route.mode, layers, detailedOverlays),
+      )
+      : yearFilteredRoutes.filter(
+        (route) =>
+          revealedRouteIdSet.has(route.id) &&
+          isModeVisibleOnMap(route.mode, layers, detailedOverlays),
+      ),
   );
   const countriesByYear = summarizeNewCountriesByYear(
     visibleVisited,
@@ -589,6 +709,22 @@ export default function TravelMap() {
 
   function toggleLayer(key: keyof LayerVisibility) {
     setLayers((current) => ({ ...current, [key]: !current[key] }));
+  }
+
+  function toggleSlowLoading() {
+    const next = !slowLoading;
+    setSlowLoading(next);
+    setShowDetailedRoutes(!next);
+    setShowDetailedTrains(!next);
+    setShowDetailedFerries(!next);
+    setLayers((currentLayers) => ({
+      ...currentLayers,
+      ferry: next,
+      bus: next,
+      train: next,
+      car: next,
+    }));
+    if (!showAll) restartPlayback();
   }
 
   function restartPlayback() {
@@ -701,22 +837,48 @@ export default function TravelMap() {
     return () => window.removeEventListener("keydown", onKey);
   }, [canTogglePlaybackPaused, togglePlaybackPaused]);
 
+  function isTripPlayable(routeId: string) {
+    const route = routeById.get(routeId);
+    return Boolean(
+      route && isModeVisibleOnMap(route.mode, layers, detailedOverlays),
+    );
+  }
+
   function skipBack() {
     if (showAll || playbackComplete) {
+      const lastPlayable = findPlayableTripIndex(
+        tripQueue,
+        tripQueue.length - 1,
+        -1,
+        isTripPlayable,
+      );
       setShowAll(false);
       setPlaybackComplete(false);
       setPlaybackPaused(false);
-      setTripIndex(Math.max(tripQueue.length - 1, 0));
+      setTripIndex(lastPlayable ?? 0);
       setPlayGeneration((value) => value + 1);
       return;
     }
-    setTripIndex((current) => Math.max(current - 1, 0));
+    const previous = findPlayableTripIndex(
+      tripQueue,
+      tripIndex - 1,
+      -1,
+      isTripPlayable,
+    );
+    if (previous === null) return;
+    setTripIndex(previous);
     setPlayGeneration((value) => value + 1);
   }
 
   function skipForward() {
     if (showAll || playbackComplete) return;
-    setTripIndex((current) => current + 1);
+    const next = findPlayableTripIndex(
+      tripQueue,
+      tripIndex + 1,
+      1,
+      isTripPlayable,
+    );
+    setTripIndex(next ?? tripQueue.length);
   }
 
   function handleJourneyComplete(routeId: string) {
@@ -774,14 +936,39 @@ export default function TravelMap() {
               visited: layers.visited ? visitedNames.size : 0,
               routes: visibleRoutes.length,
               bookmarks: visibleBookmarks.length,
+              detailedRoutes: visibleRoutes.filter(
+                (route) => route.mode === "car" || route.mode === "bus",
+              ).length,
+              detailedTrains: visibleRoutes.filter(
+                (route) => route.mode === "train",
+              ).length,
+              detailedFerries: visibleRoutes.filter(
+                (route) => route.mode === "ferry",
+              ).length,
               asOfLabel,
             }}
+            showDetailedRoutes={showDetailedRoutes}
+            onToggleDetailedRoutes={() =>
+              setShowDetailedRoutes((current) => !current)
+            }
+            showDetailedTrains={showDetailedTrains}
+            onToggleDetailedTrains={() =>
+              setShowDetailedTrains((current) => !current)
+            }
+            showDetailedFerries={showDetailedFerries}
+            onToggleDetailedFerries={() =>
+              setShowDetailedFerries((current) => !current)
+            }
+            slowLoading={slowLoading}
+            onToggleSlowLoading={toggleSlowLoading}
           />
         </>
       ) : null}
 
       <div className="relative min-h-[60vh] flex-1" data-testid="leaflet-root">
-        {status === "loading" ? <MapLoadingSpinner overlay /> : null}
+        {status !== "error" && (status === "loading" || holdSpinner) ? (
+          <MapLoadingSpinner overlay />
+        ) : null}
         {activeJourney ? (
           <JourneyMediaOverlay
             media={activeJourney.media}
@@ -804,7 +991,14 @@ export default function TravelMap() {
                 className={PLAYBACK_BAR_BUTTON}
                 onClick={skipBack}
                 disabled={
-                  !showAll && !playbackFinished && tripIndex === 0
+                  !showAll &&
+                  !playbackFinished &&
+                  findPlayableTripIndex(
+                    tripQueue,
+                    tripIndex - 1,
+                    -1,
+                    isTripPlayable,
+                  ) === null
                 }
                 data-testid="playback-skip-back"
               >
@@ -906,14 +1100,22 @@ export default function TravelMap() {
             />
           ) : null}
 
-          {visibleRoutes.map((route) => (
+          {visibleRoutes.map((route) => {
+            const overlayKind = detailedOverlayForMode(route.mode);
+            const detailedColor =
+              overlayKind && detailedOverlays[overlayKind]
+                ? detailedColorForMode(route.mode)
+                : null;
+            const color = detailedColor ?? ROUTE_COLORS[route.mode];
+            const isFlight = route.mode === "flight";
+            return (
             <Polyline
               key={route.id}
               positions={route.path}
               pathOptions={{
-                color: ROUTE_COLORS[route.mode],
-                weight: route.mode === "flight" ? 1.25 : 2.5,
-                opacity: route.mode === "flight" ? 0.85 : 0.95,
+                color,
+                weight: isFlight ? 1.25 : detailedColor ? 3 : 2.5,
+                opacity: isFlight ? 0.85 : 0.95,
               }}
             >
               <Tooltip sticky>
@@ -928,7 +1130,8 @@ export default function TravelMap() {
                 {route.date}
               </Popup>
             </Polyline>
-          ))}
+            );
+          })}
 
           {activeJourney ? (
             <JourneyFollow

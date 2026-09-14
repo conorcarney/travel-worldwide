@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mongoBookmarkCollectionSchema,
   mongoFlightSchema,
+  mongoLandRouteSchema,
   mongoSurfaceRouteSchema,
   mongoVisitedSchema,
   mapRouteSchema,
@@ -28,6 +29,91 @@ describe("mongoFlightSchema", () => {
         departure: "Dublin",
         arrival: "Paris",
         date: "19/01/2023",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("mongoLandRouteSchema", () => {
+  it("accepts encoded LandRoutes documents", () => {
+    const parsed = mongoLandRouteSchema.safeParse({
+      departure: { lat: 51.5074, lng: -0.1278 },
+      arrival: { lat: 51.515, lng: -0.09 },
+      route: {
+        geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        distance: 5820,
+        duration: 910,
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.date).toBe("");
+      expect(parsed.data.tags).toBe("");
+    }
+  });
+
+  it("accepts date and tags", () => {
+    const parsed = mongoLandRouteSchema.safeParse({
+      departure: { lat: 51.5074, lng: -0.1278 },
+      arrival: { lat: 51.515, lng: -0.09 },
+      date: "27/02/2019",
+      tags: "Peru",
+      route: {
+        geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        distance: 5820,
+        duration: 910,
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.date).toBe("27/02/2019");
+      expect(parsed.data.tags).toBe("Peru");
+    }
+  });
+
+  it("accepts Train and Ferry types", () => {
+    const parsed = mongoLandRouteSchema.safeParse({
+      departure: { lat: 51.5074, lng: -0.1278 },
+      arrival: { lat: 51.515, lng: -0.09 },
+      type: "Train",
+      route: {
+        geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        distance: 5820,
+        duration: 910,
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.type).toBe("Train");
+    }
+  });
+
+  it("accepts snapped ferry terminals", () => {
+    const parsed = mongoLandRouteSchema.safeParse({
+      departure: { lat: 50.95, lng: 1.87 },
+      arrival: { lat: 51.12, lng: 1.31 },
+      type: "Ferry",
+      fromTerminal: { lat: 50.967, lng: 1.863, name: "Calais Ferry Terminal" },
+      toTerminal: { lat: 51.127, lng: 1.327, name: "Dover Eastern Docks" },
+      route: {
+        geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        distance: 42000,
+        duration: 5400,
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.fromTerminal?.name).toBe("Calais Ferry Terminal");
+      expect(parsed.data.toTerminal?.name).toBe("Dover Eastern Docks");
+    }
+  });
+
+  it("rejects a missing geometry string", () => {
+    expect(
+      mongoLandRouteSchema.safeParse({
+        departure: { lat: 51.5074, lng: -0.1278 },
+        arrival: { lat: 51.515, lng: -0.09 },
+        route: { distance: 5820, duration: 910 },
       }).success,
     ).toBe(false);
   });

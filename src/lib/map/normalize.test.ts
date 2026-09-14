@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyDetailedGeometry,
   normalizeBookmarks,
   normalizeFlights,
+  normalizeLandRoutes,
+  encodedOverlayKind,
+  mergeEncodedWithExisting,
   normalizeSurfaceRoutes,
   normalizeVisited,
   parseLngLatString,
+  parseLatLngString,
   formatLngLatString,
+  formatLatLngString,
   ROUTE_COLORS,
+  detailedColorForMode,
 } from "@/lib/map/normalize";
 
 describe("parseLngLatString", () => {
@@ -39,6 +46,23 @@ describe("formatLngLatString", () => {
   it("returns empty when a value is missing", () => {
     expect(formatLngLatString("", 53.3498)).toBe("");
     expect(formatLngLatString(-6.2603, undefined)).toBe("");
+  });
+});
+
+describe("parseLatLngString", () => {
+  it("keeps lat,lng strings as Leaflet [lat, lng]", () => {
+    expect(parseLatLngString("53.3498, -6.2603")).toEqual([53.3498, -6.2603]);
+  });
+
+  it("returns null for empty or incomplete values", () => {
+    expect(parseLatLngString("")).toBeNull();
+    expect(parseLatLngString("1")).toBeNull();
+  });
+});
+
+describe("formatLatLngString", () => {
+  it("writes lat, lng", () => {
+    expect(formatLatLngString(53.3498, -6.2603)).toBe("53.3498, -6.2603");
   });
 });
 
@@ -178,6 +202,207 @@ describe("normalizeSurfaceRoutes", () => {
   });
 });
 
+describe("normalizeLandRoutes", () => {
+  it("decodes encoded geometry into a Leaflet path", () => {
+    const [route] = normalizeLandRoutes([
+      {
+        _id: "land-1",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 5820,
+          duration: 910,
+        },
+      },
+    ]);
+    expect(route).toMatchObject({
+      id: "land-1",
+      distance: 5820,
+      duration: 910,
+      date: "",
+      tags: "",
+      type: "",
+    });
+    expect(route.path[0]).toEqual([38.5, -120.2]);
+    expect(route.path.at(-1)).toEqual([43.252, -126.453]);
+    expect(route.path.length).toBe(3);
+  });
+
+  it("copies date and tags from the stored document", () => {
+    const [route] = normalizeLandRoutes([
+      {
+        _id: "land-2",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        date: "27/02/2019",
+        tags: "Peru, South America",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 5820,
+          duration: 910,
+        },
+      },
+    ]);
+    expect(route).toMatchObject({
+      id: "land-2",
+      date: "27/02/2019",
+      tags: "Peru, South America",
+      fromTerminal: "",
+      toTerminal: "",
+    });
+  });
+
+  it("copies snapped ferry terminal names", () => {
+    const [route] = normalizeLandRoutes([
+      {
+        _id: "ferry-term",
+        departure: { lat: 50.95, lng: 1.87 },
+        arrival: { lat: 51.12, lng: 1.31 },
+        type: "Ferry",
+        fromTerminal: { lat: 50.967, lng: 1.863, name: "Calais Ferry Terminal" },
+        toTerminal: { lat: 51.127, lng: 1.327, name: "Dover Eastern Docks" },
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 42000,
+          duration: 5400,
+        },
+      },
+    ]);
+    expect(route).toMatchObject({
+      fromTerminal: "Calais Ferry Terminal",
+      toTerminal: "Dover Eastern Docks",
+    });
+  });
+
+  it("keeps Car/Bus as the road overlay and splits Train/Ferry", () => {
+    const routes = normalizeLandRoutes([
+      {
+        _id: "car-1",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        type: "Car",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 1,
+          duration: 1,
+        },
+      },
+      {
+        _id: "train-1",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        type: "Train",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 1,
+          duration: 1,
+        },
+      },
+      {
+        _id: "ferry-1",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        type: "Ferry",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 1,
+          duration: 1,
+        },
+      },
+    ]);
+    expect(routes.map((route) => encodedOverlayKind(route))).toEqual([
+      "road",
+      "train",
+      "ferry",
+    ]);
+  });
+
+  it("fills unmatched trains and ferries from the existing surface routes", () => {
+    const existing = {
+      departure: "Groningen",
+      departure_longitude: 6.56982422,
+      departure_latitude: 53.21588495,
+      arrival: "Munich",
+      arrival_longitude: 11.57409668,
+      arrival_latitude: 48.14087441,
+      date: "01/11/2013",
+    };
+    const encoded = normalizeLandRoutes([
+      {
+        _id: "ferry-matched",
+        departure: { lat: 38.5, lng: -120.2 },
+        arrival: { lat: 43.252, lng: -126.453 },
+        type: "Ferry",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 1,
+          duration: 1,
+        },
+      },
+    ]);
+    const surface = normalizeSurfaceRoutes([
+      { ...existing, _id: "ferry-matched", type: "Ferry" },
+      { ...existing, _id: "ferry-missing", type: "Ferry" },
+      { ...existing, _id: "train-missing", type: "Train" },
+    ]);
+    const merged = mergeEncodedWithExisting(encoded, surface);
+    expect(merged.ferry.map((route) => route.id)).toEqual([
+      "ferry-matched",
+      "ferry-missing",
+    ]);
+    expect(merged.train.map((route) => route.id)).toEqual(["train-missing"]);
+    expect(merged.train[0]?.path).toEqual(surface[2]?.path);
+    expect(merged.train[0]?.fromTerminal).toBe("Groningen");
+    expect(merged.train[0]?.toTerminal).toBe("Munich");
+  });
+
+  it("replaces a surface path with matching detailed geometry", () => {
+    const surface = normalizeSurfaceRoutes([
+      {
+        _id: "bus-1",
+        departure: "Ica",
+        arrival: "Lima",
+        departure_longitude: -75.73,
+        departure_latitude: -14.07,
+        arrival_longitude: -77.02,
+        arrival_latitude: -12.06,
+        type: "Bus",
+        date: "27/02/2019",
+      },
+    ]);
+    const encoded = normalizeLandRoutes([
+      {
+        _id: "bus-1",
+        departure: { lat: -14.07, lng: -75.73 },
+        arrival: { lat: -12.06, lng: -77.02 },
+        type: "Bus",
+        route: {
+          geometry: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+          distance: 320000,
+          duration: 18000,
+        },
+      },
+    ]);
+    const [detailed] = applyDetailedGeometry(surface, encoded);
+    expect(detailed?.path.length).toBeGreaterThan(2);
+    expect(detailed?.distanceKm).toBe(320);
+    expect(detailed?.from).toBe("Ica");
+  });
+
+  it("skips documents with invalid geometry", () => {
+    expect(
+      normalizeLandRoutes([
+        {
+          departure: { lat: 1, lng: 2 },
+          arrival: { lat: 3, lng: 4 },
+          route: { geometry: "", distance: 1, duration: 1 },
+        },
+      ]),
+    ).toEqual([]);
+  });
+});
+
 describe("normalizeBookmarks", () => {
   const collection = {
     _id: "bm-doc",
@@ -266,5 +491,13 @@ describe("ROUTE_COLORS", () => {
     for (const color of Object.values(ROUTE_COLORS)) {
       expect(color).toMatch(/^#[0-9a-f]{6}$/i);
     }
+  });
+
+  it("uses the same colours for detailed overlays as the mode layers", () => {
+    expect(detailedColorForMode("car")).toBe(ROUTE_COLORS.car);
+    expect(detailedColorForMode("train")).toBe(ROUTE_COLORS.train);
+    expect(detailedColorForMode("ferry")).toBe(ROUTE_COLORS.ferry);
+    expect(detailedColorForMode("bus")).toBe(ROUTE_COLORS.bus);
+    expect(detailedColorForMode("flight")).toBeNull();
   });
 });

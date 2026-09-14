@@ -7,6 +7,8 @@ import {
   surfaceRouteWriteSchema,
 } from "@/lib/surface-routes";
 
+export const maxDuration = 60;
+
 export const GET = createCollectionGetHandler("busesTrainsAndFerries");
 
 export async function POST(request: Request) {
@@ -26,8 +28,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const route = await createSurfaceRoute(parsed.data);
-    return NextResponse.json({ ok: true, data: route }, { status: 201 });
+    const { route, encodedSource } = await createSurfaceRoute(parsed.data);
+    return NextResponse.json(
+      { ok: true, data: route, encodedSource },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof SurfaceRouteStoreError) {
       return NextResponse.json(

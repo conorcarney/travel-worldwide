@@ -1,7 +1,7 @@
 import {
-  DEFAULT_LAYERS,
-  MAP_LAYER_KEYS,
+  applyDetailedOverlayParams,
   formatYearMonthParam,
+  layerVisibilityParams,
   type LayerVisibility,
 } from "@/lib/map/filter-url";
 
@@ -420,10 +420,14 @@ export function buildPassatCountryMapHref(country: string): string | null {
   params.set("from", formatYearMonthParam({ year: target.fromYear, month: 1 }));
   params.set("to", formatYearMonthParam({ year: target.toYear, month: 12 }));
   params.append("tag", target.tag);
-  const hide = MAP_LAYER_KEYS.filter(
-    (key) => DEFAULT_LAYERS[key] && !PASSAT_MAP_LAYERS[key],
-  );
+  const { hide, show } = layerVisibilityParams(PASSAT_MAP_LAYERS);
   if (hide.length > 0) params.set("hide", hide.join(","));
+  if (show.length > 0) params.set("show", show.join(","));
+  applyDetailedOverlayParams(params, {
+    road: true,
+    train: false,
+    ferry: true,
+  });
   params.set("all", "1");
   return `/map?${params.toString()}`;
 }

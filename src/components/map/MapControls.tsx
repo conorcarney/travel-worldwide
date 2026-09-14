@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import type { TravelMode } from "@/lib/validations/map-data";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
-import type { LayerVisibility } from "@/lib/map/filter-url";
+import {
+  SLOW_MAP_LAYER_KEYS,
+  type LayerVisibility,
+} from "@/lib/map/filter-url";
 import { TagFilterBar } from "@/components/map/TagFilterBar";
 import {
   formatYearMonth,
@@ -27,8 +30,47 @@ const MODE_LABELS: Record<TravelMode, string> = {
   car: "Cars",
 };
 
+const PRIMARY_MODE_KEYS = ["flight"] as const satisfies readonly TravelMode[];
+
 const RANGE_INPUT_CLASS =
   "w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
+
+const OVERLAY_BUTTON =
+  "inline-flex items-center gap-2 rounded-md border border-border bg-transparent px-2.5 py-1 text-foreground";
+const OVERLAY_BUTTON_ON =
+  "inline-flex items-center gap-2 rounded-md border border-accent bg-accent px-2.5 py-1 text-white";
+
+function OverlayCheckbox({
+  checked,
+  onChange,
+  color,
+  label,
+  testId,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  color: string;
+  label: string;
+  testId: string;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-foreground">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        data-testid={testId}
+        style={{ accentColor: color }}
+      />
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: color }}
+        aria-hidden
+      />
+      {label}
+    </label>
+  );
+}
 
 type MapControlsProps = {
   layers: LayerVisibility;
@@ -48,8 +90,19 @@ type MapControlsProps = {
     visited: number;
     routes: number;
     bookmarks: number;
+    detailedRoutes?: number;
+    detailedTrains?: number;
+    detailedFerries?: number;
     asOfLabel?: string;
   };
+  showDetailedRoutes: boolean;
+  onToggleDetailedRoutes: () => void;
+  showDetailedTrains: boolean;
+  onToggleDetailedTrains: () => void;
+  showDetailedFerries: boolean;
+  onToggleDetailedFerries: () => void;
+  slowLoading: boolean;
+  onToggleSlowLoading: () => void;
 };
 
 export function MapControls({
@@ -67,8 +120,15 @@ export function MapControls({
   onTagFiltersChange,
   noTagResults = false,
   visibleCounts,
+  showDetailedRoutes,
+  onToggleDetailedRoutes,
+  showDetailedTrains,
+  onToggleDetailedTrains,
+  showDetailedFerries,
+  onToggleDetailedFerries,
+  slowLoading,
+  onToggleSlowLoading,
 }: MapControlsProps) {
-  const modeKeys = Object.keys(MODE_LABELS) as TravelMode[];
   const sliderMin = monthIndex(rangeMin);
   const sliderMax = monthIndex(rangeMax);
   const [fromDraft, setFromDraft] = useState(formatYearMonth(rangeStart));
@@ -134,7 +194,7 @@ export function MapControls({
           Visited only
         </span>
 
-        {modeKeys.map((mode) => (
+        {PRIMARY_MODE_KEYS.map((mode) => (
           <label
             key={mode}
             className="inline-flex items-center gap-2 text-foreground"
@@ -144,6 +204,7 @@ export function MapControls({
               checked={layers[mode]}
               onChange={() => onToggleLayer(mode)}
               data-testid={`layer-${mode}`}
+              style={{ accentColor: ROUTE_COLORS[mode] }}
             />
             <span
               className="inline-block h-2.5 w-2.5 rounded-full"
@@ -160,13 +221,80 @@ export function MapControls({
             checked={layers.bookmarks}
             onChange={() => onToggleLayer("bookmarks")}
             data-testid="layer-bookmarks"
+            style={{ accentColor: "#0ea5e9" }}
           />
           <span
-            className="inline-block h-2.5 w-2.5 rounded-full bg-sky-400"
+            className="inline-block h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: "#0ea5e9" }}
             aria-hidden
           />
           Bookmarks
         </label>
+
+        {!slowLoading ? (
+          <>
+            <span className="hidden h-4 w-px bg-border sm:inline-block" aria-hidden />
+            <OverlayCheckbox
+              checked={showDetailedRoutes}
+              onChange={onToggleDetailedRoutes}
+              color={ROUTE_COLORS.car}
+              label="Detailed car routes"
+              testId="overlay-detailed-routes"
+            />
+            <OverlayCheckbox
+              checked={showDetailedTrains}
+              onChange={onToggleDetailedTrains}
+              color={ROUTE_COLORS.train}
+              label="Detailed trains"
+              testId="overlay-detailed-trains"
+            />
+            <OverlayCheckbox
+              checked={showDetailedFerries}
+              onChange={onToggleDetailedFerries}
+              color={ROUTE_COLORS.ferry}
+              label="Detailed ferries"
+              testId="overlay-detailed-ferries"
+            />
+          </>
+        ) : (
+          <span
+            id="slow-loading-layers"
+            className="inline-flex flex-wrap items-center gap-x-4 gap-y-2"
+            data-testid="slow-loading-layers"
+          >
+            {SLOW_MAP_LAYER_KEYS.map((mode) => (
+              <label
+                key={mode}
+                className="inline-flex items-center gap-2 text-foreground"
+              >
+                <input
+                  type="checkbox"
+                  checked={layers[mode]}
+                  onChange={() => onToggleLayer(mode)}
+                  data-testid={`layer-${mode}`}
+                  style={{ accentColor: ROUTE_COLORS[mode] }}
+                />
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: ROUTE_COLORS[mode] }}
+                  aria-hidden
+                />
+                {MODE_LABELS[mode]}
+              </label>
+            ))}
+          </span>
+        )}
+
+        <button
+          type="button"
+          className={slowLoading ? OVERLAY_BUTTON_ON : OVERLAY_BUTTON}
+          onClick={onToggleSlowLoading}
+          aria-pressed={slowLoading}
+          aria-controls={slowLoading ? "slow-loading-layers" : undefined}
+          data-testid="slow-loading-toggle"
+        >
+          Slow Loading?
+        </button>
 
         <div className="inline-flex min-w-0 flex-1 flex-wrap items-start gap-2 text-foreground">
           <span className="pt-1.5">Tags</span>
@@ -292,6 +420,15 @@ export function MapControls({
       <p className="text-xs text-muted" data-testid="map-visible-counts">
         Showing {visibleCounts.visited} visited · {visibleCounts.routes} routes ·{" "}
         {visibleCounts.bookmarks} bookmarks
+        {showDetailedRoutes
+          ? ` · ${visibleCounts.detailedRoutes ?? 0} detailed car routes`
+          : ""}
+        {showDetailedTrains
+          ? ` · ${visibleCounts.detailedTrains ?? 0} detailed trains`
+          : ""}
+        {showDetailedFerries
+          ? ` · ${visibleCounts.detailedFerries ?? 0} detailed ferries`
+          : ""}
         {visibleCounts.asOfLabel ? ` · as of ${visibleCounts.asOfLabel}` : ""}
       </p>
     </div>

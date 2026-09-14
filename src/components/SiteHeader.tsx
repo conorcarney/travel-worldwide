@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { logoutAction } from "@/app/login/actions";
 import { isAdminSession } from "@/lib/authz";
+import { readAuthSession } from "@/lib/auth-session";
 
 const publicLinks = [
   { href: "/", label: "Home" },
@@ -12,7 +13,7 @@ const publicLinks = [
 ] as const;
 
 export async function SiteHeader() {
-  const session = await auth();
+  const session = await readAuthSession(() => auth());
   const showAdmin = isAdminSession(session);
   const isSignedIn = Boolean(session?.user);
 
