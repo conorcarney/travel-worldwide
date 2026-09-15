@@ -77,6 +77,7 @@ export const mongoBlogSchema = z.object({
   _id: z.union([z.string(), z.number()]).optional(),
   name: z.string(),
   date_of_first_visit: z.string().optional(),
+  date_of_story: z.string().optional(),
   url: z.string().optional(),
   blog_title: z.string().optional(),
   blog_description: z.string().optional(),

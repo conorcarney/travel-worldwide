@@ -68,6 +68,8 @@ export const fixtures: Record<CollectionKey, unknown[]> = {
       _id: "fixture-blog-1",
       name: "Ireland",
       date_of_first_visit: "06/2018",
+      date_of_story: "06/2018",
+      created_at: "2018-07-01T00:00:00.000Z",
       url: "ireland",
       blog_title: "First trip notes",
       blog_description:

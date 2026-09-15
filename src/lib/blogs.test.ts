@@ -59,6 +59,7 @@ describe("blogWriteSchema", () => {
   const valid = {
     name: "Hungary",
     date_of_first_visit: "01/2013",
+    date_of_story: "02/2024",
     url: "hungary",
     blog_title: "Budasesh",
     blog_description: "A trip note",
@@ -67,6 +68,15 @@ describe("blogWriteSchema", () => {
 
   it("accepts a valid blog", () => {
     expect(blogWriteSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("defaults date of story when omitted", () => {
+    const { date_of_story: _omitted, ...withoutStoryDate } = valid;
+    const parsed = blogWriteSchema.safeParse(withoutStoryDate);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.date_of_story).toBe("");
+    }
   });
 
   it("rejects invalid slugs", () => {
@@ -82,6 +92,7 @@ describe("toBlogDocument", () => {
       toBlogDocument({
         name: "Hungary",
         date_of_first_visit: "01/2013",
+        date_of_story: "02/2024",
         url: "hungary",
         blog_title: "Budasesh",
         blog_description: "A trip note",
@@ -90,6 +101,7 @@ describe("toBlogDocument", () => {
     ).toEqual({
       name: "Hungary",
       date_of_first_visit: "01/2013",
+      date_of_story: "02/2024",
       url: "hungary",
       blog_title: "Budasesh",
       blog_description: "A trip note",

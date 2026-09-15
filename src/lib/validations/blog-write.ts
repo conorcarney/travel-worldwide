@@ -4,6 +4,7 @@ import { z } from "zod";
 export const blogWriteSchema = z.object({
   name: z.string().trim().min(1, "Country name is required"),
   date_of_first_visit: z.string().trim().min(1, "Date is required"),
+  date_of_story: z.string().trim().optional().default(""),
   url: z
     .string()
     .trim()
@@ -19,7 +20,10 @@ export const blogWriteSchema = z.object({
 
 export type BlogWriteInput = z.infer<typeof blogWriteSchema>;
 
-export type BlogRecord = BlogWriteInput & { _id: string };
+export type BlogRecord = BlogWriteInput & {
+  _id: string;
+  created_at?: string;
+};
 
 export function slugifyBlogUrl(value: string): string {
   return value

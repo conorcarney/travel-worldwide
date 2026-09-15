@@ -3,15 +3,24 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { SortableHeader } from "@/components/admin/SortableHeader";
+import { nextSortState, type SortState } from "@/lib/admin/table-sort";
+import { sortBlogs, type BlogSortKey } from "@/lib/blog-sort";
 import {
   blogWriteSchema,
   slugifyBlogUrl,
   type BlogRecord,
 } from "@/lib/validations/blog-write";
 
+type BlogAdminSortKey = Extract<
+  BlogSortKey,
+  "title" | "country" | "story" | "slug" | "tags"
+>;
+
 type BlogFormState = {
   name: string;
   date_of_first_visit: string;
+  date_of_story: string;
   url: string;
   blog_title: string;
   blog_description: string;
@@ -21,6 +30,7 @@ type BlogFormState = {
 const EMPTY_FORM: BlogFormState = {
   name: "",
   date_of_first_visit: "",
+  date_of_story: "",
   url: "",
   blog_title: "",
   blog_description: "",
@@ -31,6 +41,7 @@ function toFormState(blog: BlogRecord): BlogFormState {
   return {
     name: blog.name ?? "",
     date_of_first_visit: blog.date_of_first_visit ?? "",
+    date_of_story: blog.date_of_story ?? "",
     url: blog.url ?? "",
     blog_title: blog.blog_title ?? "",
     blog_description: blog.blog_description ?? "",
@@ -46,6 +57,11 @@ export function BlogsAdmin() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sort, setSort] = useState<SortState<BlogAdminSortKey>>({
+    key: "story",
+    direction: "desc",
+  });
+  const sortedBlogs = sortBlogs(blogs, sort);
 
   async function loadBlogs() {
     setStatus("loading");
@@ -78,10 +94,7 @@ export function BlogsAdmin() {
   ) {
     setForm((current) => {
       const next = { ...current, [key]: value };
-      if (key === "blog_title" && !urlTouched) {
-        next.url = slugifyBlogUrl(String(value));
-      }
-      if (key === "name" && !urlTouched && !current.blog_title.trim()) {
+      if (key === "name" && !urlTouched) {
         next.url = slugifyBlogUrl(String(value));
       }
       return next;
@@ -199,6 +212,21 @@ export function BlogsAdmin() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
+          URL slug
+          <input
+            className="rounded border border-border bg-background px-3 py-2 text-foreground"
+            value={form.url}
+            onChange={(event) => {
+              setUrlTouched(true);
+              updateField("url", slugifyBlogUrl(event.target.value));
+            }}
+            placeholder="hungary"
+            data-testid="blog-url"
+            required
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-muted">
           Date of first visit
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
@@ -213,17 +241,15 @@ export function BlogsAdmin() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-muted">
-          URL slug
+          Date of story
           <input
             className="rounded border border-border bg-background px-3 py-2 text-foreground"
-            value={form.url}
-            onChange={(event) => {
-              setUrlTouched(true);
-              updateField("url", slugifyBlogUrl(event.target.value));
-            }}
-            placeholder="hungary"
-            data-testid="blog-url"
-            required
+            value={form.date_of_story}
+            onChange={(event) =>
+              updateField("date_of_story", event.target.value)
+            }
+            placeholder="15/08/2017"
+            data-testid="blog-date-of-story"
           />
         </label>
 
@@ -312,21 +338,65 @@ export function BlogsAdmin() {
             <table className="min-w-full text-left text-sm" data-testid="blogs-table">
               <thead className="bg-surface text-muted">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Title</th>
-                  <th className="px-3 py-2 font-medium">Country</th>
-                  <th className="px-3 py-2 font-medium">Slug</th>
-                  <th className="px-3 py-2 font-medium">Tags</th>
+                  <SortableHeader
+                    label="Title"
+                    columnKey="title"
+                    activeKey={sort.key}
+                    direction={sort.direction}
+                    onSort={(key) =>
+                      setSort((current) => nextSortState(current, key))
+                    }
+                  />
+                  <SortableHeader
+                    label="Country"
+                    columnKey="country"
+                    activeKey={sort.key}
+                    direction={sort.direction}
+                    onSort={(key) =>
+                      setSort((current) => nextSortState(current, key))
+                    }
+                  />
+                  <SortableHeader
+                    label="Story date"
+                    columnKey="story"
+                    activeKey={sort.key}
+                    direction={sort.direction}
+                    onSort={(key) =>
+                      setSort((current) => nextSortState(current, key))
+                    }
+                  />
+                  <SortableHeader
+                    label="Slug"
+                    columnKey="slug"
+                    activeKey={sort.key}
+                    direction={sort.direction}
+                    onSort={(key) =>
+                      setSort((current) => nextSortState(current, key))
+                    }
+                  />
+                  <SortableHeader
+                    label="Tags"
+                    columnKey="tags"
+                    activeKey={sort.key}
+                    direction={sort.direction}
+                    onSort={(key) =>
+                      setSort((current) => nextSortState(current, key))
+                    }
+                  />
                   <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {blogs.map((blog) => (
+                {sortedBlogs.map((blog) => (
                   <tr
                     key={blog._id}
                     className="border-t border-border text-foreground"
                   >
                     <td className="px-3 py-2 align-top">{blog.blog_title}</td>
                     <td className="px-3 py-2 align-top">{blog.name}</td>
+                    <td className="px-3 py-2 align-top text-muted">
+                      {blog.date_of_story || "—"}
+                    </td>
                     <td className="px-3 py-2 align-top text-muted">{blog.url}</td>
                     <td className="px-3 py-2 align-top text-muted">
                       {blog.tags || "—"}

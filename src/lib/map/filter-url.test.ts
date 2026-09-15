@@ -270,7 +270,7 @@ describe("clampFilterRange", () => {
     });
   });
 
-  it("defaults a missing start to Jan 2013", () => {
+  it("defaults a missing start to Jan 2025", () => {
     expect(
       clampFilterRange(
         null,
@@ -279,7 +279,7 @@ describe("clampFilterRange", () => {
         { year: 2027, month: 12 },
       ),
     ).toEqual({
-      start: { year: 2013, month: 1 },
+      start: { year: 2025, month: 1 },
       end: { year: 2027, month: 12 },
     });
   });

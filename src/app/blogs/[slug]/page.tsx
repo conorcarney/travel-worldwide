@@ -60,7 +60,10 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
       <article className={unpublished ? "mt-4" : "mt-6"}>
         <p className="text-xs uppercase tracking-wide text-muted">
           {blog.name}
-          {blog.date_of_first_visit ? ` · ${blog.date_of_first_visit}` : ""}
+          {blog.date_of_story ? ` · ${blog.date_of_story}` : ""}
+          {!blog.date_of_story && blog.date_of_first_visit
+            ? ` · ${blog.date_of_first_visit}`
+            : ""}
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-tight text-foreground sm:text-5xl">
           {blog.blog_title}

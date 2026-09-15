@@ -21,7 +21,7 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   });
   await expect(page.getByTestId("map-controls")).toBeVisible();
   await expect(page.getByTestId("map-filter-status")).toBeVisible();
-  await expect(page.getByTestId("year-start-value")).toHaveText("Jan 2013");
+  await expect(page.getByTestId("year-start-value")).toHaveText("Jan 2025");
   const from = await page.getByTestId("year-start-value").textContent();
   const to = await page.getByTestId("year-end-value").textContent();
   const dates = from === to ? from : `${from} – ${to}`;

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { BlogIndex } from "@/components/blogs/BlogIndex";
 import { loadPublicBlogs } from "@/lib/blog-pages";
-import { briefBlogDescription } from "@/lib/validations/blog-write";
 
 export const metadata: Metadata = {
   title: "Blogs",
@@ -21,29 +20,7 @@ export default async function BlogsPage() {
         full story.
       </p>
 
-      <ul className="mt-10 divide-y divide-border border-y border-border">
-        {blogs.map((blog) => (
-          <li key={blog._id}>
-            <Link
-              href={`/blogs/${blog.url}`}
-              className="block py-5 transition-colors hover:bg-surface/50"
-            >
-              <h2 className="font-display text-2xl text-foreground">
-                {blog.blog_title}
-              </h2>
-              <p className="mt-1 text-xs uppercase tracking-wide text-muted">
-                {blog.name}
-                {blog.date_of_first_visit
-                  ? ` · ${blog.date_of_first_visit}`
-                  : ""}
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                {briefBlogDescription(blog.blog_description)}
-              </p>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <BlogIndex blogs={blogs} />
 
       {blogs.length === 0 ? (
         <p className="mt-8 text-sm text-muted">No published blogs yet.</p>

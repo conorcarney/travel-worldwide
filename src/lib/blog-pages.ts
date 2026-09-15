@@ -1,4 +1,5 @@
 import { BlogStoreError, listPublicBlogs, getBlogBySlug } from "@/lib/blogs";
+import { sortBlogs } from "@/lib/blog-sort";
 import { fixtures } from "@/lib/fixtures";
 import { isMongoConfigured } from "@/lib/mongodb";
 import {
@@ -13,7 +14,7 @@ function fixtureBlogs(): BlogRecord[] {
 
 export async function loadPublicBlogs(): Promise<BlogRecord[]> {
   if (!isMongoConfigured()) {
-    return fixtureBlogs().filter(isPublicBlog);
+    return sortBlogs(fixtureBlogs().filter(isPublicBlog));
   }
 
   try {

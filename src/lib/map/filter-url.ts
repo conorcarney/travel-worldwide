@@ -123,7 +123,7 @@ export function applyDetailedOverlayParams(
 export const DEFAULT_MAP_ZOOM = 6;
 
 /** Default date-filter start when the URL omits `from`. */
-export const DEFAULT_FILTER_START: YearMonth = { year: 2013, month: 1 };
+export const DEFAULT_FILTER_START: YearMonth = { year: 2025, month: 1 };
 
 /**
  * Highest zoom restored from the URL on load.

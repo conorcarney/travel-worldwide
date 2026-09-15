@@ -2,6 +2,7 @@ import { ObjectId, type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
 import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { sortBlogs } from "@/lib/blog-sort";
 import {
   isPublicBlog,
   type BlogRecord,
@@ -47,6 +48,7 @@ export function toBlogDocument(input: BlogWriteInput) {
   return {
     name: input.name,
     date_of_first_visit: input.date_of_first_visit,
+    date_of_story: input.date_of_story ?? "",
     url: input.url,
     blog_title: input.blog_title,
     blog_description: input.blog_description,
@@ -62,11 +64,7 @@ export async function listAllBlogs(): Promise<BlogRecord[]> {
 
 export async function listPublicBlogs(): Promise<BlogRecord[]> {
   const blogs = await listAllBlogs();
-  return blogs
-    .filter(isPublicBlog)
-    .sort((a, b) =>
-      (b.date_of_first_visit || "").localeCompare(a.date_of_first_visit || ""),
-    );
+  return sortBlogs(blogs.filter(isPublicBlog));
 }
 
 export async function getBlogBySlug(slug: string): Promise<BlogRecord | null> {
@@ -86,11 +84,16 @@ export async function createBlog(input: BlogWriteInput): Promise<BlogRecord> {
     throw new BlogStoreError("A blog with that URL slug already exists", 409);
   }
 
-  const document = toBlogDocument(input);
+  const createdAt = new Date();
+  const document = {
+    ...toBlogDocument(input),
+    created_at: createdAt,
+  };
   const result = await collection.insertOne(document);
   return {
     _id: String(result.insertedId),
-    ...document,
+    ...toBlogDocument(input),
+    created_at: createdAt.toISOString(),
   };
 }
 
