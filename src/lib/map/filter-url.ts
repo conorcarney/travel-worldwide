@@ -4,7 +4,7 @@ import {
   type PlaybackSpeedId,
 } from "@/lib/map/journey";
 import { parseYearMonth, yearMonthKey, type YearMonth } from "@/lib/map/timeline";
-import { clampYearMonth } from "@/lib/map/years";
+import { clampYearMonth, currentYearMonth } from "@/lib/map/years";
 
 export type DetailedOverlayVisibility = {
   road: boolean;
@@ -125,6 +125,11 @@ export const DEFAULT_MAP_ZOOM = 6;
 /** Default date-filter start when the URL omits `from`. */
 export const DEFAULT_FILTER_START: YearMonth = { year: 2025, month: 1 };
 
+/** Default date-filter end when the URL omits `to`. */
+export function defaultFilterEnd(now: Date = new Date()): YearMonth {
+  return currentYearMonth(now);
+}
+
 /**
  * Highest zoom restored from the URL on load.
  * Follow-cam used to persist ~9–16 into `zoom=`; those values are treated as
@@ -133,7 +138,7 @@ export const DEFAULT_FILTER_START: YearMonth = { year: 2025, month: 1 };
 export const MAX_RESTORED_MAP_ZOOM = 8;
 
 /** Default playback speed when the URL omits `speed`. */
-export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "normal";
+export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeedId = "slow";
 
 /** Initial map zoom from a parsed URL value (drops legacy follow-cam zooms). */
 export function resolveInitialMapZoom(urlZoom: number): number {
@@ -270,9 +275,10 @@ export function clampFilterRange(
   to: YearMonth | null,
   min: YearMonth,
   max: YearMonth,
+  now: Date = new Date(),
 ): { start: YearMonth; end: YearMonth } {
   const start = clampYearMonth(from ?? DEFAULT_FILTER_START, min, max);
-  const end = clampYearMonth(to ?? max, min, max);
+  const end = clampYearMonth(to ?? defaultFilterEnd(now), min, max);
   if (yearMonthKey(start) <= yearMonthKey(end)) {
     return { start, end };
   }
@@ -298,10 +304,15 @@ export function buildMapFilterQuery(input: {
     input.boundsMin,
     input.boundsMax,
   );
+  const defaultTo = clampYearMonth(
+    defaultFilterEnd(),
+    input.boundsMin,
+    input.boundsMax,
+  );
   if (yearMonthKey(input.from) !== yearMonthKey(defaultFrom)) {
     params.set("from", formatYearMonthParam(input.from));
   }
-  if (yearMonthKey(input.to) !== yearMonthKey(input.boundsMax)) {
+  if (yearMonthKey(input.to) !== yearMonthKey(defaultTo)) {
     params.set("to", formatYearMonthParam(input.to));
   }
   const seen = new Set<string>();

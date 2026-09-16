@@ -22,6 +22,28 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("map-controls")).toBeVisible();
   await expect(page.getByTestId("map-filter-status")).toBeVisible();
   await expect(page.getByTestId("year-start-value")).toHaveText("Jan 2025");
+  const now = new Date();
+  const monthLabels = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  await expect(page.getByTestId("year-end-value")).toHaveText(
+    `${monthLabels[now.getMonth()]} ${now.getFullYear()}`,
+  );
+  await expect(page.getByTestId("year-end")).toHaveAttribute(
+    "max",
+    String(now.getFullYear() * 12 + now.getMonth()),
+  );
   const from = await page.getByTestId("year-start-value").textContent();
   const to = await page.getByTestId("year-end-value").textContent();
   const dates = from === to ? from : `${from} – ${to}`;
@@ -55,6 +77,14 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("year-start-input")).toBeVisible();
   await expect(page.getByTestId("year-end-input")).toBeVisible();
   await expect(page.getByTestId("year-range-apply")).toBeVisible();
+  await page.getByTestId("year-end-input").fill("Dec 2099");
+  await page.getByTestId("year-range-apply").click();
+  await expect(page.getByTestId("year-range-error")).toContainText(
+    "Dates cannot be after",
+  );
+  await expect(page.getByTestId("year-end-value")).toHaveText(
+    `${monthLabels[now.getMonth()]} ${now.getFullYear()}`,
+  );
 });
 
 test("spacebar pauses and resumes map playback", async ({ page }) => {

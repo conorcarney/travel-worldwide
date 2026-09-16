@@ -7,6 +7,7 @@ import {
   buildMapFilterQuery,
   buildModeMapHref,
   clampFilterRange,
+  defaultFilterEnd,
   parseMapFilterSearch,
   parseYearMonthParam,
   resolveInitialMapZoom,
@@ -73,12 +74,13 @@ describe("parseMapFilterSearch", () => {
 describe("buildMapFilterQuery", () => {
   const boundsMin = { year: 2000, month: 1 };
   const boundsMax = { year: 2027, month: 12 };
+  const defaultTo = defaultFilterEnd();
 
   it("always writes speed, zoom, and paused", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -94,7 +96,7 @@ describe("buildMapFilterQuery", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -110,7 +112,7 @@ describe("buildMapFilterQuery", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -145,7 +147,7 @@ describe("buildMapFilterQuery", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: ["Work", "Family"],
@@ -161,7 +163,7 @@ describe("buildMapFilterQuery", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -177,7 +179,7 @@ describe("buildMapFilterQuery", () => {
     expect(
       buildMapFilterQuery({
         from: DEFAULT_FILTER_START,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -190,11 +192,27 @@ describe("buildMapFilterQuery", () => {
     ).toBe("speed=normal&zoom=6&paused=0&all=1");
   });
 
+  it("writes to when it is not the current month", () => {
+    expect(
+      buildMapFilterQuery({
+        from: DEFAULT_FILTER_START,
+        to: boundsMax,
+        boundsMin,
+        boundsMax,
+        tags: [],
+        layers: DEFAULT_LAYERS,
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+      }),
+    ).toBe("to=2027-12&speed=normal&zoom=6&paused=0");
+  });
+
   it("writes from when it is not the default start", () => {
     expect(
       buildMapFilterQuery({
         from: boundsMin,
-        to: boundsMax,
+        to: defaultTo,
         boundsMin,
         boundsMax,
         tags: [],
@@ -236,7 +254,7 @@ describe("playback URL params", () => {
     const parsed = parseMapFilterSearch(
       new URLSearchParams("speed=warp&zoom=nope&paused=0"),
     );
-    expect(parsed.speed).toBe("normal");
+    expect(parsed.speed).toBe("slow");
     expect(parsed.zoom).toBe(6);
     expect(parsed.paused).toBe(false);
   });
@@ -255,6 +273,15 @@ describe("playback URL params", () => {
   });
 });
 
+describe("defaultFilterEnd", () => {
+  it("uses the current calendar month", () => {
+    expect(defaultFilterEnd(new Date(2026, 8, 15))).toEqual({
+      year: 2026,
+      month: 9,
+    });
+  });
+});
+
 describe("clampFilterRange", () => {
   it("swaps inverted ranges and clamps to bounds", () => {
     expect(
@@ -270,17 +297,18 @@ describe("clampFilterRange", () => {
     });
   });
 
-  it("defaults a missing start to Jan 2025", () => {
+  it("defaults a missing start to Jan 2025 and end to the current month", () => {
     expect(
       clampFilterRange(
         null,
         null,
         { year: 1992, month: 11 },
         { year: 2027, month: 12 },
+        new Date(2026, 8, 15),
       ),
     ).toEqual({
       start: { year: 2025, month: 1 },
-      end: { year: 2027, month: 12 },
+      end: { year: 2026, month: 9 },
     });
   });
 });

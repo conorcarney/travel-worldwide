@@ -34,7 +34,7 @@ export function MapLoadingSpinner({
   }
 
   return (
-    <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/55 backdrop-blur-[1px]">
+    <div className="absolute inset-0 z-[1200] flex items-center justify-center bg-background/55 backdrop-blur-[1px]">
       {content}
     </div>
   );

@@ -7,30 +7,29 @@ import {
   parseTripMedia,
   type TripMediaItem,
 } from "@/lib/map/trip-media";
-import { MapLoadingSpinner } from "@/components/map/MapLoadingSpinner";
 
 type MediaSize = { width: number; height: number };
-
-function mediaLoadingLabel(kind: TripMediaItem["kind"]): string {
-  return kind === "image" ? "Loading photo…" : "Loading video…";
-}
 
 function MediaSlide({
   item,
   title,
   onNaturalSize,
+  onReady,
 }: {
   item: TripMediaItem;
   title: string;
   onNaturalSize: (size: MediaSize) => void;
+  onReady?: () => void;
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [loaded, setLoaded] = useState(false);
+  const readyRef = useRef(false);
 
-  const markLoaded = useCallback(() => {
-    setLoaded(true);
-  }, []);
+  const markReady = useCallback(() => {
+    if (readyRef.current) return;
+    readyRef.current = true;
+    onReady?.();
+  }, [onReady]);
 
   useLayoutEffect(() => {
     if (item.kind === "youtube" || item.kind === "vimeo") {
@@ -50,7 +49,7 @@ function MediaSlide({
         });
       }
       if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        setLoaded(true);
+        markReady();
       }
       return;
     }
@@ -61,70 +60,66 @@ function MediaSlide({
         width: image.naturalWidth,
         height: image.naturalHeight,
       });
-      setLoaded(true);
+      markReady();
     }
-  }, [item, onNaturalSize]);
+  }, [item, markReady, onNaturalSize]);
+
+  if (item.kind === "youtube" || item.kind === "vimeo") {
+    return (
+      <iframe
+        src={item.embedUrl}
+        title={title}
+        className="h-full w-full border-0"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        onLoad={markReady}
+      />
+    );
+  }
+
+  if (item.kind === "video") {
+    return (
+      <video
+        ref={videoRef}
+        src={item.url}
+        className="h-full w-full object-contain"
+        autoPlay
+        muted
+        loop
+        playsInline
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            onNaturalSize({
+              width: video.videoWidth,
+              height: video.videoHeight,
+            });
+          }
+        }}
+        onCanPlay={markReady}
+        onError={markReady}
+      />
+    );
+  }
 
   return (
-    <>
-      {item.kind === "youtube" || item.kind === "vimeo" ? (
-        <iframe
-          src={item.embedUrl}
-          title={title}
-          className={`h-full w-full border-0 ${loaded ? "opacity-100" : "opacity-0"}`}
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-          onLoad={markLoaded}
-        />
-      ) : item.kind === "video" ? (
-        <video
-          ref={videoRef}
-          src={item.url}
-          className={`h-full w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
-          autoPlay
-          muted
-          loop
-          playsInline
-          onLoadedMetadata={(event) => {
-            const video = event.currentTarget;
-            if (video.videoWidth > 0 && video.videoHeight > 0) {
-              onNaturalSize({
-                width: video.videoWidth,
-                height: video.videoHeight,
-              });
-            }
-          }}
-          onCanPlay={markLoaded}
-          onError={markLoaded}
-        />
-      ) : (
-        <img
-          ref={imageRef}
-          src={item.url}
-          alt={title}
-          className={`h-full w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
-          onLoad={(event) => {
-            const image = event.currentTarget;
-            if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-              onNaturalSize({
-                width: image.naturalWidth,
-                height: image.naturalHeight,
-              });
-            }
-            markLoaded();
-          }}
-          onError={markLoaded}
-        />
-      )}
-      {!loaded ? (
-        <div
-          className="absolute inset-0 z-[1] flex items-center justify-center bg-black/40"
-          data-testid="journey-media-loading"
-        >
-          <MapLoadingSpinner compact label={mediaLoadingLabel(item.kind)} />
-        </div>
-      ) : null}
-    </>
+    <img
+      ref={imageRef}
+      src={item.url}
+      alt={title}
+      className="h-full w-full object-contain"
+      onLoad={(event) => {
+        const image = event.currentTarget;
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          onNaturalSize({
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          });
+        }
+        markReady();
+      }}
+      onError={markReady}
+    />
   );
 }
 
@@ -133,6 +128,7 @@ type JourneyMediaOverlayProps = {
   title: string;
   mode: string;
   tags?: string[];
+  onFirstMediaReady?: () => void;
 };
 
 const STEP_BUTTON =
@@ -145,6 +141,7 @@ export function JourneyMediaOverlay({
   title,
   mode,
   tags = [],
+  onFirstMediaReady,
 }: JourneyMediaOverlayProps) {
   const items = parseTripMedia(media);
   const [index, setIndex] = useState(0);
@@ -170,6 +167,11 @@ export function JourneyMediaOverlay({
     setIndex(0);
     setNaturalSize(null);
   }, [media]);
+
+  useEffect(() => {
+    if (hasMedia) return;
+    onFirstMediaReady?.();
+  }, [hasMedia, media, onFirstMediaReady]);
 
   useEffect(() => {
     setNaturalSize(null);
@@ -239,6 +241,7 @@ export function JourneyMediaOverlay({
             item={item}
             title={title}
             onNaturalSize={reportNaturalSize}
+            onReady={current === 0 ? onFirstMediaReady : undefined}
           />
           {showPager ? (
             <>

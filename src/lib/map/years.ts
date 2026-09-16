@@ -25,25 +25,27 @@ export function inYearRange(
   return year >= start && year <= end;
 }
 
+export function currentYearMonth(now: Date = new Date()): YearMonth {
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
 export function getYearBounds(
   dates: string[],
   now: Date = new Date(),
   fallbackMin = 2000,
 ): { min: number; max: number } {
   const currentYear = now.getFullYear();
-  // Keep the slider open through the planned travel horizon.
-  const filterMaxYear = Math.max(currentYear, 2027);
   const years = dates
     .map(parseYear)
     .filter((year): year is number => year !== null);
 
   if (years.length === 0) {
-    return { min: fallbackMin, max: filterMaxYear };
+    return { min: fallbackMin, max: currentYear };
   }
 
   return {
-    min: Math.min(...years),
-    max: Math.max(...years, filterMaxYear),
+    min: Math.min(...years, currentYear),
+    max: currentYear,
   };
 }
 
@@ -105,24 +107,19 @@ export function getMonthBounds(
   now: Date = new Date(),
   fallbackMin = 2000,
 ): { min: YearMonth; max: YearMonth } {
-  const filterMax: YearMonth = {
-    year: Math.max(now.getFullYear(), 2027),
-    month: 12,
-  };
+  const max = currentYearMonth(now);
   const months = dates
     .map(parseYearMonth)
     .filter((value): value is YearMonth => value !== null);
 
   if (months.length === 0) {
-    return { min: { year: fallbackMin, month: 1 }, max: filterMax };
+    return { min: { year: fallbackMin, month: 1 }, max };
   }
 
-  const keys = months.map(yearMonthKey);
-  const minKey = Math.min(...keys);
-  const maxKey = Math.max(...keys, yearMonthKey(filterMax));
+  const minKey = Math.min(...months.map(yearMonthKey), yearMonthKey(max));
   return {
     min: { year: Math.floor(minKey / 100), month: minKey % 100 },
-    max: { year: Math.floor(maxKey / 100), month: maxKey % 100 },
+    max,
   };
 }
 

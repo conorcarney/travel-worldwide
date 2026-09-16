@@ -154,6 +154,14 @@ export function MapControls({
       return;
     }
 
+    if (
+      yearMonthKey(parsedStart) > yearMonthKey(rangeMax) ||
+      yearMonthKey(parsedEnd) > yearMonthKey(rangeMax)
+    ) {
+      setFilterError(`Dates cannot be after ${formatYearMonth(rangeMax)}.`);
+      return;
+    }
+
     const startKey = yearMonthKey(parsedStart);
     const endKey = yearMonthKey(parsedEnd);
     const orderedStart = startKey <= endKey ? parsedStart : parsedEnd;

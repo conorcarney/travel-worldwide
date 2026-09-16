@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampYearMonth,
+  currentYearMonth,
   filterByMonthRange,
   filterByYearRange,
   getMonthBounds,
@@ -12,6 +13,15 @@ import {
   parseFilterMonthInput,
   parseYear,
 } from "@/lib/map/years";
+
+describe("currentYearMonth", () => {
+  it("uses the local calendar month", () => {
+    expect(currentYearMonth(new Date(2026, 8, 15))).toEqual({
+      year: 2026,
+      month: 9,
+    });
+  });
+});
 
 describe("parseYear", () => {
   it("parses DD/MM/YYYY and M/YYYY route dates", () => {
@@ -51,28 +61,28 @@ describe("inYearRange", () => {
 });
 
 describe("getYearBounds", () => {
-  it("returns min from data and extends max through 2027", () => {
+  it("returns min from data and caps max at the current year", () => {
     expect(
-      getYearBounds(["2/2020", "19/01/2023", "bad"], new Date("2026-08-03")),
+      getYearBounds(["2/2020", "19/01/2023", "bad"], new Date(2026, 7, 3)),
     ).toEqual({
       min: 2020,
-      max: 2027,
+      max: 2026,
     });
   });
 
-  it("keeps a later data year if it is after 2027", () => {
+  it("does not extend max past the current year", () => {
     expect(
-      getYearBounds(["01/01/2030"], new Date("2026-01-01")),
+      getYearBounds(["01/01/2030"], new Date(2026, 0, 1)),
     ).toEqual({
-      min: 2030,
-      max: 2030,
+      min: 2026,
+      max: 2026,
     });
   });
 
-  it("uses fallback min and 2027 when no years exist", () => {
-    expect(getYearBounds([], new Date("2026-08-03"), 2001)).toEqual({
+  it("uses fallback min and the current year when no years exist", () => {
+    expect(getYearBounds([], new Date(2026, 7, 3), 2001)).toEqual({
       min: 2001,
-      max: 2027,
+      max: 2026,
     });
   });
 });
@@ -132,12 +142,21 @@ describe("inMonthRange / filterByMonthRange", () => {
 });
 
 describe("getMonthBounds", () => {
-  it("uses the earliest data month and extends max through Dec 2027", () => {
+  it("uses the earliest data month and caps max at the current month", () => {
     expect(
-      getMonthBounds(["2/2020", "19/01/2023", "bad"], new Date("2026-08-03")),
+      getMonthBounds(["2/2020", "19/01/2023", "bad"], new Date(2026, 7, 3)),
     ).toEqual({
       min: { year: 2020, month: 2 },
-      max: { year: 2027, month: 12 },
+      max: { year: 2026, month: 8 },
+    });
+  });
+
+  it("does not extend max past the current month", () => {
+    expect(
+      getMonthBounds(["01/01/2030"], new Date(2026, 8, 15)),
+    ).toEqual({
+      min: { year: 2026, month: 9 },
+      max: { year: 2026, month: 9 },
     });
   });
 });

@@ -79,6 +79,7 @@ import {
   buildMapFilterQuery,
   clampFilterRange,
   DEFAULT_FILTER_START,
+  defaultFilterEnd,
   DEFAULT_MAP_ZOOM,
   DEFAULT_PLAYBACK_SPEED,
   parseMapFilterSearch,
@@ -86,6 +87,7 @@ import {
   SLOW_MAP_LAYER_KEYS,
 } from "@/lib/map/filter-url";
 import { formatMapFilterStatus } from "@/lib/map/filter-summary";
+import { parseTripMedia } from "@/lib/map/trip-media";
 import {
   findPlayableTripIndex,
   isModeVisibleOnMap,
@@ -207,8 +209,6 @@ function SkipBackIcon() {
   );
 }
 
-const MAP_LOAD_SPINNER_MS = 1000;
-
 function SkipForwardIcon() {
   return (
     <svg
@@ -239,12 +239,9 @@ export default function TravelMap() {
     () => parseMapFilterSearch(searchParams).layers,
   );
   const [rangeMin, setRangeMin] = useState<YearMonth>({ year: 2000, month: 1 });
-  const [rangeMax, setRangeMax] = useState<YearMonth>({ year: 2027, month: 12 });
+  const [rangeMax, setRangeMax] = useState<YearMonth>(defaultFilterEnd);
   const [rangeStart, setRangeStart] = useState<YearMonth>(DEFAULT_FILTER_START);
-  const [rangeEnd, setRangeEnd] = useState<YearMonth>({
-    year: 2027,
-    month: 12,
-  });
+  const [rangeEnd, setRangeEnd] = useState<YearMonth>(defaultFilterEnd);
   const [playbackMonth, setPlaybackMonth] = useState<YearMonth | null>(null);
   const [playbackComplete, setPlaybackComplete] = useState(false);
   const [tripIndex, setTripIndex] = useState(0);
@@ -281,7 +278,7 @@ export default function TravelMap() {
   const [showDetailedFerries, setShowDetailedFerries] = useState(
     () => parseMapFilterSearch(searchParams).detailed.ferry,
   );
-  const [holdSpinner, setHoldSpinner] = useState(true);
+  const [awaitingFirstMedia, setAwaitingFirstMedia] = useState(true);
   const layersRef = useRef(layers);
   const detailedRef = useRef<DetailedOverlayVisibility>({
     road: showDetailedRoutes,
@@ -297,11 +294,27 @@ export default function TravelMap() {
   }, [mapZoom]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setHoldSpinner(false);
-    }, MAP_LOAD_SPINNER_MS);
-    return () => window.clearTimeout(timer);
-  }, []);
+    if (!awaitingFirstMedia) return;
+    if (status === "error") {
+      setAwaitingFirstMedia(false);
+      return;
+    }
+    if (status !== "ready") return;
+    if (showAll || playbackComplete) {
+      setAwaitingFirstMedia(false);
+      return;
+    }
+    if (!activeJourney) return;
+    if (parseTripMedia(activeJourney.media).length === 0) {
+      setAwaitingFirstMedia(false);
+    }
+  }, [
+    awaitingFirstMedia,
+    status,
+    showAll,
+    playbackComplete,
+    activeJourney,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -735,6 +748,7 @@ export default function TravelMap() {
     setPlaybackMonth(null);
     setPlaybackPaused(false);
     setPlaybackComplete(false);
+    setAwaitingFirstMedia(true);
     setTripIndex(0);
     setPlayGeneration((value) => value + 1);
   }
@@ -889,6 +903,10 @@ export default function TravelMap() {
     setTripIndex((current) => current + 1);
   }
 
+  const handleFirstMediaReady = useCallback(() => {
+    setAwaitingFirstMedia(false);
+  }, []);
+
   const playbackLabel = showAll
     ? `Showing all${asOfLabel ? ` · ${asOfLabel}` : ""}`
     : playbackFinished
@@ -966,8 +984,8 @@ export default function TravelMap() {
       ) : null}
 
       <div className="relative min-h-[60vh] flex-1" data-testid="leaflet-root">
-        {status !== "error" && (status === "loading" || holdSpinner) ? (
-          <MapLoadingSpinner overlay />
+        {status !== "error" && (status === "loading" || awaitingFirstMedia) ? (
+          <MapLoadingSpinner overlay label="Loading map…" />
         ) : null}
         {activeJourney ? (
           <JourneyMediaOverlay
@@ -975,6 +993,7 @@ export default function TravelMap() {
             title={journeyTitle(activeJourney)}
             mode={activeJourney.mode}
             tags={activeTags}
+            onFirstMediaReady={handleFirstMediaReady}
           />
         ) : null}
         {status === "ready" ? (
@@ -1137,7 +1156,7 @@ export default function TravelMap() {
             <JourneyFollow
               key={`${activeJourney.id}-${playGeneration}`}
               route={activeJourney}
-              paused={playbackPaused}
+              paused={playbackPaused || awaitingFirstMedia}
               speed={playbackSpeedMultiplier(playbackSpeed)}
               userZoomRef={userFollowZoomRef}
               cameraStateRef={followCameraRef}
