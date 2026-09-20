@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
+import { ChartTooltip } from "@/components/stats/ChartTooltip";
+import { YearBarGrid } from "@/components/stats/YearBarGrid";
 import { buildCountryVisitMapHref } from "@/lib/map/filter-url";
 import { formatTripDate } from "@/lib/map/timeline";
 import {
@@ -11,40 +13,22 @@ import {
   yearProgress,
   type FirstCountryVisit,
 } from "@/lib/map/visited-stats";
+import { goToMap, tipFromMouse, type HoverTip } from "@/lib/stats/chart-hover";
+import {
+  YEAR_BAR_AXIS,
+  YEAR_BAR_GRID,
+  YEAR_BAR_PAD,
+  yearBarLayout,
+} from "@/lib/stats/year-bar-chart";
 
 const ACCENT = "#3d9b6a";
 const ACCENT_HOVER = "#54b57f";
-const AXIS = "#9bb4bc";
-const GRID = "#1e3d48";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-type HoverTip = {
-  x: number;
-  y: number;
-  title: string;
-  detail: string;
-};
 
 type NewCountriesByYearChartProps = {
   visited: Array<{ name: string; date?: string }>;
   initialYear?: number;
 };
-
-function tipFromMouse(
-  event: MouseEvent<Element>,
-  host: HTMLElement | null,
-  title: string,
-  detail: string,
-): HoverTip | null {
-  if (!host) return null;
-  const box = host.getBoundingClientRect();
-  return {
-    x: event.clientX - box.left + 12,
-    y: event.clientY - box.top - 40,
-    title,
-    detail,
-  };
-}
 
 function YearBarChart({
   counts,
@@ -62,58 +46,35 @@ function YearBarChart({
   const years = counts.map((row) => row.year);
   const countByYear = new Map(counts.map((row) => [row.year, row.newCountries]));
   const maxCount = Math.max(1, ...counts.map((row) => row.newCountries));
-
-  const pad = { top: 16, right: 8, bottom: 84, left: 36 };
-  const innerWidth = Math.max(years.length * 28, 560);
-  const width = pad.left + innerWidth + pad.right;
-  const height = 268;
-  const innerHeight = height - pad.top - pad.bottom;
-  const slot = innerWidth / Math.max(years.length, 1);
-  const barWidth = Math.max(8, slot * 0.62);
+  const layout = yearBarLayout(years.length);
 
   return (
     <svg
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 0 ${layout.width} ${layout.height}`}
       className="h-72 w-full min-w-[36rem]"
       role="img"
       aria-label="New countries by year bar chart"
       data-testid="countries-by-year-bars"
     >
-      {[0, 0.5, 1].map((fraction) => {
-        const value = Math.round(maxCount * (1 - fraction));
-        const y = pad.top + innerHeight * fraction;
-        return (
-          <g key={fraction}>
-            <line
-              x1={pad.left}
-              x2={width - pad.right}
-              y1={y}
-              y2={y}
-              stroke={GRID}
-              strokeWidth="1"
-            />
-            <text
-              x={pad.left - 8}
-              y={y + 3}
-              textAnchor="end"
-              fill={AXIS}
-              fontSize="10"
-            >
-              {value}
-            </text>
-          </g>
-        );
-      })}
+      <YearBarGrid
+        width={layout.width}
+        innerHeight={layout.innerHeight}
+        maxCount={maxCount}
+      />
 
       {years.map((year, index) => {
         const count = countByYear.get(year) ?? 0;
-        const x = pad.left + index * slot + (slot - barWidth) / 2;
-        const barHeight = count === 0 ? 0 : Math.max(3, (count / maxCount) * innerHeight);
-        const y = pad.top + innerHeight - barHeight;
+        const x =
+          YEAR_BAR_PAD.left +
+          index * layout.slot +
+          (layout.slot - layout.barWidth) / 2;
+        const barHeight =
+          count === 0 ? 0 : Math.max(3, (count / maxCount) * layout.innerHeight);
+        const y = YEAR_BAR_PAD.top + layout.innerHeight - barHeight;
         const selected = year === selectedYear;
         const fill = selected ? ACCENT_HOVER : ACCENT;
-        const labelX = x + barWidth / 2;
-        const labelY = height - 28;
+        const labelX = x + layout.barWidth / 2;
+        const labelY = layout.height - 28;
 
         return (
           <g key={year}>
@@ -121,7 +82,7 @@ function YearBarChart({
               <rect
                 x={x}
                 y={y}
-                width={barWidth}
+                width={layout.barWidth}
                 height={barHeight}
                 rx="3"
                 fill={fill}
@@ -168,7 +129,7 @@ function YearBarChart({
               x={labelX}
               y={labelY}
               textAnchor="end"
-              fill={selected ? "#e8f0f2" : AXIS}
+              fill={selected ? "#e8f0f2" : YEAR_BAR_AXIS}
               fontSize="10"
               transform={`rotate(-60 ${labelX} ${labelY})`}
             >
@@ -217,14 +178,14 @@ function YearVisitTimeline({
               x2={x}
               y1={pad.top}
               y2={height - pad.bottom}
-              stroke={GRID}
+              stroke={YEAR_BAR_GRID}
               strokeWidth="1"
             />
             <text
               x={x}
               y={height - 10}
               textAnchor="middle"
-              fill={AXIS}
+              fill={YEAR_BAR_AXIS}
               fontSize="10"
             >
               {label}
@@ -263,19 +224,7 @@ function YearVisitTimeline({
               aria-label={`Open ${visit.name} on the map for ${formatTripDate(visit.date)}`}
               data-testid={`countries-in-year-point-${visit.name}`}
               className="cursor-pointer"
-              onClick={(event) => {
-                if (
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey ||
-                  event.button !== 0
-                ) {
-                  return;
-                }
-                event.preventDefault();
-                router.push(href);
-              }}
+              onClick={(event) => goToMap(event, href, router.push)}
               onMouseEnter={(event) =>
                 onHover(
                   tipFromMouse(
@@ -385,16 +334,7 @@ export function NewCountriesByYearChart({
         </div>
       ) : null}
 
-      {hover ? (
-        <div
-          className="pointer-events-none absolute z-10 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground shadow-lg"
-          style={{ left: hover.x, top: hover.y }}
-          data-testid="countries-by-year-tooltip"
-        >
-          <p className="font-medium">{hover.title}</p>
-          <p className="text-muted">{hover.detail}</p>
-        </div>
-      ) : null}
+      <ChartTooltip hover={hover} testId="countries-by-year-tooltip" />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { ObjectId, type Db } from "mongodb";
+import { type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
 import {
@@ -6,7 +6,7 @@ import {
   upsertEncodedLandRoute,
   type EncodedRouteSource,
 } from "@/lib/land-routes-store";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { parseObjectId, requireConfiguredDb, StoreError } from "@/lib/store";
 import {
   type SurfaceRouteRecord,
   type SurfaceRouteWriteInput,
@@ -26,36 +26,14 @@ export type SurfaceRouteSaveResult = {
   encodedSource: EncodedRouteSource;
 };
 
-export class SurfaceRouteStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "SurfaceRouteStoreError";
-    this.status = status;
-  }
-}
-
-export async function requireSurfaceRoutesDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new SurfaceRouteStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new SurfaceRouteStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
+export { StoreError as SurfaceRouteStoreError };
 
 function surfaceRoutesCollection(db: Db) {
   return db.collection(COLLECTIONS.busesTrainsAndFerries);
 }
 
-function parseObjectId(id: string): ObjectId {
-  if (!ObjectId.isValid(id)) {
-    throw new SurfaceRouteStoreError("Invalid route id", 400);
-  }
-  return new ObjectId(id);
+function routeId(id: string) {
+  return parseObjectId(id, "Invalid route id");
 }
 
 export function toSurfaceRouteDocument(input: SurfaceRouteWriteInput) {
@@ -73,59 +51,57 @@ export function toSurfaceRouteDocument(input: SurfaceRouteWriteInput) {
   };
 }
 
+async function encodeRoute(
+  id: string,
+  input: SurfaceRouteWriteInput,
+): Promise<EncodedRouteSource> {
+  return upsertEncodedLandRoute(id, input).catch((error: unknown) => {
+    console.error("Failed to encode land route", error);
+    return "existing" as const;
+  });
+}
+
 export async function createSurfaceRoute(
   input: SurfaceRouteWriteInput,
 ): Promise<SurfaceRouteSaveResult> {
-  const db = await requireSurfaceRoutesDb();
+  const db = await requireConfiguredDb();
   const document = toSurfaceRouteDocument(input);
   const result = await surfaceRoutesCollection(db).insertOne(document);
   const route: SurfaceRouteRecord = {
     _id: String(result.insertedId),
     ...document,
   };
-  const encodedSource = await upsertEncodedLandRoute(route._id, input).catch(
-    (error: unknown) => {
-      console.error("Failed to encode land route", error);
-      return "existing" as const;
-    },
-  );
-  return { route, encodedSource };
+  return { route, encodedSource: await encodeRoute(route._id, input) };
 }
 
 export async function updateSurfaceRoute(
   id: string,
   input: SurfaceRouteWriteInput,
 ): Promise<SurfaceRouteSaveResult> {
-  const db = await requireSurfaceRoutesDb();
-  const objectId = parseObjectId(id);
+  const db = await requireConfiguredDb();
   const document = toSurfaceRouteDocument(input);
   const result = await surfaceRoutesCollection(db).findOneAndUpdate(
-    { _id: objectId },
+    { _id: routeId(id) },
     { $set: document },
     { returnDocument: "after" },
   );
 
   if (!result) {
-    throw new SurfaceRouteStoreError("Route not found", 404);
+    throw new StoreError("Route not found", 404);
   }
 
   const [serialized] = serializeDocs([result]) as SurfaceRouteRecord[];
   const route = serialized!;
-  const encodedSource = await upsertEncodedLandRoute(id, input).catch(
-    (error: unknown) => {
-      console.error("Failed to encode land route", error);
-      return "existing" as const;
-    },
-  );
-  return { route, encodedSource };
+  return { route, encodedSource: await encodeRoute(id, input) };
 }
 
 export async function deleteSurfaceRoute(id: string): Promise<void> {
-  const db = await requireSurfaceRoutesDb();
-  const objectId = parseObjectId(id);
-  const result = await surfaceRoutesCollection(db).deleteOne({ _id: objectId });
+  const db = await requireConfiguredDb();
+  const result = await surfaceRoutesCollection(db).deleteOne({
+    _id: routeId(id),
+  });
   if (result.deletedCount === 0) {
-    throw new SurfaceRouteStoreError("Route not found", 404);
+    throw new StoreError("Route not found", 404);
   }
   await deleteEncodedLandRoute(id).catch((error: unknown) => {
     console.error("Failed to delete encoded land route", error);

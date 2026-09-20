@@ -17,6 +17,7 @@ import { AdminMediaField, type AdminMediaFieldHandle } from "@/components/admin/
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import { paginateRows } from "@/lib/admin/pagination";
 import { filterRowsByQuery } from "@/lib/admin/search";
 import { formatLatLngString, parseLatLngString } from "@/lib/map/normalize";
@@ -155,14 +156,10 @@ export function LandRoutesAdmin() {
     }
     try {
       const response = await fetch("/api/buses-trains-ferries");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: SurfaceRouteRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load routes");
-      }
+      const body = await parseAdminJson<SurfaceRouteRecord[]>(
+        response,
+        "Failed to load routes",
+      );
       setRoutes(body.data ?? []);
       setStatus("ready");
     } catch (error) {
@@ -252,14 +249,12 @@ export function LandRoutesAdmin() {
           body: JSON.stringify({ ...parsed.data, media }),
         },
       );
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: SurfaceRouteRecord;
-        encodedSource?: string;
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Save failed");
+      const body = await parseAdminJson<SurfaceRouteRecord>(
+        response,
+        "Save failed",
+      );
+      if (!body.data) {
+        throw new Error("Save failed");
       }
       const saved = body.data;
       if (id) {
@@ -303,10 +298,7 @@ export function LandRoutesAdmin() {
       const response = await fetch(`/api/buses-trains-ferries/${id}`, {
         method: "DELETE",
       });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) cancelEdit();
       setRoutes((current) => current.filter((row) => row._id !== id));
       setMessage("Route deleted.");

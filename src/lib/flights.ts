@@ -1,7 +1,7 @@
-import { ObjectId, type Db } from "mongodb";
+import { type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { parseObjectId, requireConfiguredDb, StoreError } from "@/lib/store";
 import {
   flightWriteSchema,
   type FlightRecord,
@@ -14,36 +14,10 @@ export {
   type FlightWriteInput,
 } from "@/lib/validations/flight-write";
 
-export async function requireFlightsDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new FlightStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new FlightStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
-
-export class FlightStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "FlightStoreError";
-    this.status = status;
-  }
-}
+export { StoreError as FlightStoreError };
 
 function flightsCollection(db: Db) {
   return db.collection(COLLECTIONS.flights);
-}
-
-function parseObjectId(id: string): ObjectId {
-  if (!ObjectId.isValid(id)) {
-    throw new FlightStoreError("Invalid flight id", 400);
-  }
-  return new ObjectId(id);
 }
 
 export function toFlightDocument(input: FlightWriteInput) {
@@ -67,8 +41,12 @@ function normalizeCoordinatePair(value: string): string {
   return `${lng}, ${lat}`;
 }
 
+function flightId(id: string) {
+  return parseObjectId(id, "Invalid flight id");
+}
+
 export async function listFlights(): Promise<FlightRecord[]> {
-  const db = await requireFlightsDb();
+  const db = await requireConfiguredDb();
   const docs = await flightsCollection(db).find({}).limit(5000).toArray();
   return serializeDocs(docs) as FlightRecord[];
 }
@@ -76,7 +54,7 @@ export async function listFlights(): Promise<FlightRecord[]> {
 export async function createFlight(
   input: FlightWriteInput,
 ): Promise<FlightRecord> {
-  const db = await requireFlightsDb();
+  const db = await requireConfiguredDb();
   const document = toFlightDocument(input);
   const result = await flightsCollection(db).insertOne(document);
   return {
@@ -89,17 +67,16 @@ export async function updateFlight(
   id: string,
   input: FlightWriteInput,
 ): Promise<FlightRecord> {
-  const db = await requireFlightsDb();
-  const objectId = parseObjectId(id);
+  const db = await requireConfiguredDb();
   const document = toFlightDocument(input);
   const result = await flightsCollection(db).findOneAndUpdate(
-    { _id: objectId },
+    { _id: flightId(id) },
     { $set: document },
     { returnDocument: "after" },
   );
 
   if (!result) {
-    throw new FlightStoreError("Flight not found", 404);
+    throw new StoreError("Flight not found", 404);
   }
 
   const [serialized] = serializeDocs([result]) as FlightRecord[];
@@ -107,10 +84,9 @@ export async function updateFlight(
 }
 
 export async function deleteFlight(id: string): Promise<void> {
-  const db = await requireFlightsDb();
-  const objectId = parseObjectId(id);
-  const result = await flightsCollection(db).deleteOne({ _id: objectId });
+  const db = await requireConfiguredDb();
+  const result = await flightsCollection(db).deleteOne({ _id: flightId(id) });
   if (result.deletedCount === 0) {
-    throw new FlightStoreError("Flight not found", 404);
+    throw new StoreError("Flight not found", 404);
   }
 }

@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { parseAdminJson } from "@/lib/admin/api";
 import {
   USER_ROLE_NAMES,
   userWriteSchema,
@@ -36,14 +37,10 @@ export function UsersAdmin() {
     setMessage(null);
     try {
       const response = await fetch("/api/users");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: PublicUserRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load users");
-      }
+      const body = await parseAdminJson<PublicUserRecord[]>(
+        response,
+        "Failed to load users",
+      );
       setUsers(body.data ?? []);
       setStatus("ready");
     } catch (error) {
@@ -80,10 +77,7 @@ export function UsersAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Save failed");
-      }
+      await parseAdminJson(response, "Save failed");
       setForm(EMPTY_FORM);
       await loadUsers();
       setMessage("User created.");

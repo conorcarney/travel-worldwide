@@ -1,68 +1,24 @@
-import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/authz";
+import {
+  createAdminDeleteHandler,
+  createAdminUpdateHandler,
+} from "@/lib/api/admin-handler";
 import {
   deleteSurfaceRoute,
-  SurfaceRouteStoreError,
   surfaceRouteWriteSchema,
   updateSurfaceRoute,
 } from "@/lib/surface-routes";
 
 export const maxDuration = 60;
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
+export const PUT = createAdminUpdateHandler({
+  schema: surfaceRouteWriteSchema,
+  invalidMessage: "Invalid route",
+  fallbackError: "Failed to update route",
+  update: updateSurfaceRoute,
+  toResponse: ({ route, encodedSource }) => ({ data: route, encodedSource }),
+});
 
-export async function PUT(request: Request, context: RouteContext) {
-  const { error } = await requireAdminApi();
-  if (error) return error;
-
-  try {
-    const { id } = await context.params;
-    const body: unknown = await request.json();
-    const parsed = surfaceRouteWriteSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: parsed.error.issues[0]?.message ?? "Invalid route",
-        },
-        { status: 400 },
-      );
-    }
-
-    const { route, encodedSource } = await updateSurfaceRoute(id, parsed.data);
-    return NextResponse.json({ ok: true, data: route, encodedSource });
-  } catch (error) {
-    if (error instanceof SurfaceRouteStoreError) {
-      return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Failed to update route";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: Request, context: RouteContext) {
-  const { error } = await requireAdminApi();
-  if (error) return error;
-
-  try {
-    const { id } = await context.params;
-    await deleteSurfaceRoute(id);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    if (error instanceof SurfaceRouteStoreError) {
-      return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Failed to delete route";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
-}
+export const DELETE = createAdminDeleteHandler({
+  fallbackError: "Failed to delete route",
+  remove: deleteSurfaceRoute,
+});

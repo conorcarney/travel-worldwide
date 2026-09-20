@@ -12,11 +12,16 @@ import {
   AdminInlineSelect,
 } from "@/components/admin/AdminInlineField";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import {
   countryRatingWriteSchema,
   type CountryRatingRecord,
 } from "@/lib/validations/country-rating-write";
-import { computeCountryRatingAverage } from "@/lib/map/country-ratings";
+import {
+  COUNTRY_RATING_SCORE_FIELDS,
+  computeCountryRatingAverage,
+  formatRatingScore,
+} from "@/lib/map/country-ratings";
 
 type RatingSortKey = "name" | "continent" | "rating";
 
@@ -52,18 +57,6 @@ const EMPTY_FORM: RatingFormState = {
   reason: "",
 };
 
-const SCORE_FIELDS = [
-  ["culture", "Culture"],
-  ["entertainment", "Entertainment"],
-  ["landscapes", "Landscapes"],
-  ["price", "Price"],
-  ["easeOfEntry", "Ease of entry"],
-  ["food", "Food"],
-  ["experiences", "Experiences"],
-  ["drivers", "Drivers"],
-  ["roads", "Roads"],
-] as const;
-
 function toFormState(rating: CountryRatingRecord): RatingFormState {
   return {
     name: rating.name ?? "",
@@ -90,10 +83,7 @@ function draftAverage(draft: RatingFormState): number | null {
 }
 
 function scoreLabel(value: number | null | undefined): string {
-  if (value == null) return "—";
-  return value.toLocaleString("en-GB", {
-    maximumFractionDigits: 2,
-  });
+  return formatRatingScore(value ?? null);
 }
 
 export function CountryRatingsAdmin() {
@@ -124,14 +114,10 @@ export function CountryRatingsAdmin() {
     }
     try {
       const response = await fetch("/api/country-ratings");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: CountryRatingRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load country ratings");
-      }
+      const body = await parseAdminJson<CountryRatingRecord[]>(
+        response,
+        "Failed to load country ratings",
+      );
       setRatings(
         (body.data ?? []).map((row) => ({
           ...row,
@@ -193,13 +179,12 @@ export function CountryRatingsAdmin() {
           body: JSON.stringify(parsed.data),
         },
       );
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: CountryRatingRecord;
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Save failed");
+      const body = await parseAdminJson<CountryRatingRecord>(
+        response,
+        "Save failed",
+      );
+      if (!body.data) {
+        throw new Error("Save failed");
       }
       const saved = body.data;
       if (id) {
@@ -240,10 +225,7 @@ export function CountryRatingsAdmin() {
       const response = await fetch(`/api/country-ratings/${id}`, {
         method: "DELETE",
       });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) cancelEdit();
       setRatings((current) => current.filter((row) => row._id !== id));
       setMessage("Country rating removed.");
@@ -296,7 +278,7 @@ export function CountryRatingsAdmin() {
           />
         </label>
 
-        {SCORE_FIELDS.map(([key, label]) => (
+        {COUNTRY_RATING_SCORE_FIELDS.map(([key, label]) => (
           <label key={key} className="flex flex-col gap-1 text-sm text-muted">
             {label}
             <input
@@ -537,7 +519,7 @@ export function CountryRatingsAdmin() {
                           onCancel={cancelEdit}
                         />
                       </td>
-                      {SCORE_FIELDS.map(([key]) => (
+                      {COUNTRY_RATING_SCORE_FIELDS.map(([key]) => (
                         <td key={key} className="px-3 py-2 align-top">
                           <AdminInlineInput
                             type="number"

@@ -17,18 +17,22 @@ export type CountryRatingRow = {
   reason: string;
 };
 
-export type CountryRatingScores = Pick<
-  CountryRatingRow,
-  | "culture"
-  | "entertainment"
-  | "landscapes"
-  | "price"
-  | "easeOfEntry"
-  | "food"
-  | "experiences"
-  | "drivers"
-  | "roads"
->;
+export const COUNTRY_RATING_SCORE_FIELDS = [
+  ["culture", "Culture"],
+  ["entertainment", "Entertainment"],
+  ["landscapes", "Landscapes"],
+  ["price", "Price"],
+  ["easeOfEntry", "Ease of entry"],
+  ["food", "Food"],
+  ["experiences", "Experiences"],
+  ["drivers", "Drivers"],
+  ["roads", "Roads"],
+] as const;
+
+export type CountryRatingScoreKey =
+  (typeof COUNTRY_RATING_SCORE_FIELDS)[number][0];
+
+export type CountryRatingScores = Pick<CountryRatingRow, CountryRatingScoreKey>;
 
 /**
  * Overall rating = mean of category scores.
@@ -37,17 +41,9 @@ export type CountryRatingScores = Pick<
 export function computeCountryRatingAverage(
   scores: CountryRatingScores,
 ): number | null {
-  const values = [
-    scores.culture,
-    scores.entertainment,
-    scores.landscapes,
-    scores.price,
-    scores.easeOfEntry,
-    scores.food,
-    scores.experiences,
-    scores.drivers,
-    scores.roads,
-  ].filter((value): value is number => value != null && Number.isFinite(value));
+  const values = COUNTRY_RATING_SCORE_FIELDS.map(([key]) => scores[key]).filter(
+    (value): value is number => value != null && Number.isFinite(value),
+  );
 
   if (values.length === 0) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;

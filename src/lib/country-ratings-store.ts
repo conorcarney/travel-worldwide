@@ -1,8 +1,9 @@
-import { ObjectId, type Db } from "mongodb";
+import { type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
 import { computeCountryRatingAverage } from "@/lib/map/country-ratings";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { escapeRegex } from "@/lib/escape-regex";
+import { parseObjectId, requireConfiguredDb, StoreError } from "@/lib/store";
 import type {
   CountryRatingRecord,
   CountryRatingWriteInput,
@@ -14,40 +15,14 @@ export {
   type CountryRatingWriteInput,
 } from "@/lib/validations/country-rating-write";
 
-export class CountryRatingStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "CountryRatingStoreError";
-    this.status = status;
-  }
-}
-
-export async function requireCountryRatingsDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new CountryRatingStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new CountryRatingStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
+export { StoreError as CountryRatingStoreError };
 
 function ratingsCollection(db: Db) {
   return db.collection(COLLECTIONS.countryRatings);
 }
 
-function parseObjectId(id: string): ObjectId {
-  if (!ObjectId.isValid(id)) {
-    throw new CountryRatingStoreError("Invalid country rating id", 400);
-  }
-  return new ObjectId(id);
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function ratingId(id: string) {
+  return parseObjectId(id, "Invalid country rating id");
 }
 
 export function toCountryRatingDocument(input: CountryRatingWriteInput) {
@@ -72,17 +47,14 @@ export function toCountryRatingDocument(input: CountryRatingWriteInput) {
 export async function createCountryRating(
   input: CountryRatingWriteInput,
 ): Promise<CountryRatingRecord> {
-  const db = await requireCountryRatingsDb();
+  const db = await requireConfiguredDb();
   const collection = ratingsCollection(db);
 
   const existing = await collection.findOne({
     name: { $regex: `^${escapeRegex(input.name)}$`, $options: "i" },
   });
   if (existing) {
-    throw new CountryRatingStoreError(
-      "That country already has a rating",
-      409,
-    );
+    throw new StoreError("That country already has a rating", 409);
   }
 
   const document = toCountryRatingDocument(input);
@@ -97,19 +69,16 @@ export async function updateCountryRating(
   id: string,
   input: CountryRatingWriteInput,
 ): Promise<CountryRatingRecord> {
-  const db = await requireCountryRatingsDb();
+  const db = await requireConfiguredDb();
   const collection = ratingsCollection(db);
-  const objectId = parseObjectId(id);
+  const objectId = ratingId(id);
 
   const duplicate = await collection.findOne({
     _id: { $ne: objectId },
     name: { $regex: `^${escapeRegex(input.name)}$`, $options: "i" },
   });
   if (duplicate) {
-    throw new CountryRatingStoreError(
-      "That country already has a rating",
-      409,
-    );
+    throw new StoreError("That country already has a rating", 409);
   }
 
   const document = toCountryRatingDocument(input);
@@ -120,7 +89,7 @@ export async function updateCountryRating(
   );
 
   if (!result) {
-    throw new CountryRatingStoreError("Country rating not found", 404);
+    throw new StoreError("Country rating not found", 404);
   }
 
   const [serialized] = serializeDocs([result]) as CountryRatingRecord[];
@@ -128,10 +97,9 @@ export async function updateCountryRating(
 }
 
 export async function deleteCountryRating(id: string): Promise<void> {
-  const db = await requireCountryRatingsDb();
-  const objectId = parseObjectId(id);
-  const result = await ratingsCollection(db).deleteOne({ _id: objectId });
+  const db = await requireConfiguredDb();
+  const result = await ratingsCollection(db).deleteOne({ _id: ratingId(id) });
   if (result.deletedCount === 0) {
-    throw new CountryRatingStoreError("Country rating not found", 404);
+    throw new StoreError("Country rating not found", 404);
   }
 }

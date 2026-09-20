@@ -1,62 +1,26 @@
 "use client";
 
-import { useRef, useState, type MouseEvent } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChartTooltip } from "@/components/stats/ChartTooltip";
+import { YearBarGrid } from "@/components/stats/YearBarGrid";
 import { buildModeMapHref } from "@/lib/map/filter-url";
 import { ROUTE_COLORS } from "@/lib/map/normalize";
+import { goToMap, tipFromMouse, type HoverTip } from "@/lib/stats/chart-hover";
+import {
+  YEAR_BAR_AXIS,
+  YEAR_BAR_PAD,
+  yearBarLayout,
+} from "@/lib/stats/year-bar-chart";
 import type { TravelMode } from "@/lib/validations/map-data";
 import type { TripsByYearRow } from "@/lib/stats/trips-by-year";
-
-const AXIS = "#9bb4bc";
-const GRID = "#1e3d48";
-
-type HoverTip = {
-  x: number;
-  y: number;
-  title: string;
-  detail: string;
-};
 
 type TripsByYearChartProps = {
   mode: TravelMode;
   label: string;
   counts: TripsByYearRow[];
 };
-
-function tipFromMouse(
-  event: MouseEvent<Element>,
-  host: HTMLElement | null,
-  title: string,
-  detail: string,
-): HoverTip | null {
-  if (!host) return null;
-  const box = host.getBoundingClientRect();
-  return {
-    x: event.clientX - box.left + 12,
-    y: event.clientY - box.top - 40,
-    title,
-    detail,
-  };
-}
-
-function goToMap(
-  event: MouseEvent<HTMLElement>,
-  href: string,
-  push: (url: string) => void,
-) {
-  if (
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey ||
-    event.button !== 0
-  ) {
-    return;
-  }
-  event.preventDefault();
-  push(href);
-}
 
 export function TripsByYearChart({
   mode,
@@ -70,14 +34,7 @@ export function TripsByYearChart({
   const years = counts.map((row) => row.year);
   const maxCount = Math.max(1, ...counts.map((row) => row.count));
   const allYearsHref = buildModeMapHref(mode);
-
-  const pad = { top: 16, right: 8, bottom: 84, left: 36 };
-  const innerWidth = Math.max(years.length * 28, 560);
-  const width = pad.left + innerWidth + pad.right;
-  const height = 268;
-  const innerHeight = height - pad.top - pad.bottom;
-  const slot = innerWidth / Math.max(years.length, 1);
-  const barWidth = Math.max(8, slot * 0.62);
+  const layout = yearBarLayout(years.length);
 
   return (
     <section
@@ -109,44 +66,30 @@ export function TripsByYearChart({
       ) : (
         <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-surface/40 p-3 pb-10">
           <svg
-            viewBox={`0 0 ${width} ${height}`}
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
             className="h-72 w-full min-w-[36rem]"
             role="img"
             aria-label={`${label} by year bar chart`}
             data-testid="trips-by-year-bars"
           >
-            {[0, 0.5, 1].map((fraction) => {
-              const value = Math.round(maxCount * (1 - fraction));
-              const y = pad.top + innerHeight * fraction;
-              return (
-                <g key={fraction}>
-                  <line
-                    x1={pad.left}
-                    x2={width - pad.right}
-                    y1={y}
-                    y2={y}
-                    stroke={GRID}
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={pad.left - 8}
-                    y={y + 3}
-                    textAnchor="end"
-                    fill={AXIS}
-                    fontSize="10"
-                  >
-                    {value}
-                  </text>
-                </g>
-              );
-            })}
+            <YearBarGrid
+              width={layout.width}
+              innerHeight={layout.innerHeight}
+              maxCount={maxCount}
+            />
 
             {counts.map((row, index) => {
-              const x = pad.left + index * slot + (slot - barWidth) / 2;
-              const barHeight = Math.max(3, (row.count / maxCount) * innerHeight);
-              const y = pad.top + innerHeight - barHeight;
-              const labelX = x + barWidth / 2;
-              const labelY = height - 28;
+              const x =
+                YEAR_BAR_PAD.left +
+                index * layout.slot +
+                (layout.slot - layout.barWidth) / 2;
+              const barHeight = Math.max(
+                3,
+                (row.count / maxCount) * layout.innerHeight,
+              );
+              const y = YEAR_BAR_PAD.top + layout.innerHeight - barHeight;
+              const labelX = x + layout.barWidth / 2;
+              const labelY = layout.height - 28;
               const unit = row.count === 1 ? "trip" : "trips";
               const href = buildModeMapHref(mode, row.year);
               const tip = `${row.count.toLocaleString("en-GB")} ${unit} · Open on map`;
@@ -173,7 +116,7 @@ export function TripsByYearChart({
                     <rect
                       x={x}
                       y={y}
-                      width={barWidth}
+                      width={layout.barWidth}
                       height={barHeight}
                       rx="3"
                       fill={fill}
@@ -183,7 +126,7 @@ export function TripsByYearChart({
                     x={labelX}
                     y={labelY}
                     textAnchor="end"
-                    fill={AXIS}
+                    fill={YEAR_BAR_AXIS}
                     fontSize="10"
                     transform={`rotate(-60 ${labelX} ${labelY})`}
                   >
@@ -196,16 +139,7 @@ export function TripsByYearChart({
         </div>
       )}
 
-      {hover ? (
-        <div
-          className="pointer-events-none absolute z-10 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground shadow-lg"
-          style={{ left: hover.x, top: hover.y }}
-          data-testid="trips-by-year-tooltip"
-        >
-          <p className="font-medium">{hover.title}</p>
-          <p className="text-muted">{hover.detail}</p>
-        </div>
-      ) : null}
+      <ChartTooltip hover={hover} testId="trips-by-year-tooltip" />
     </section>
   );
 }

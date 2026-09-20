@@ -21,26 +21,9 @@ import {
 import { dateSortKey } from "@/lib/admin/table-sort";
 import { SortableHeader } from "@/components/admin/SortableHeader";
 import { useTableSort } from "@/lib/admin/use-table-sort";
+import { goToMap } from "@/lib/stats/chart-hover";
 
 const STATS_TH = "pb-2 pr-3 font-medium";
-
-function goToMap(
-  event: MouseEvent<HTMLElement>,
-  href: string,
-  push: (url: string) => void,
-) {
-  if (
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey ||
-    event.button !== 0
-  ) {
-    return;
-  }
-  event.preventDefault();
-  push(href);
-}
 
 function CountryCells({
   row,

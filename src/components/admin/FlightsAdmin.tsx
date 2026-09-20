@@ -15,6 +15,7 @@ import {
 import { AdminMediaField, type AdminMediaFieldHandle } from "@/components/admin/AdminMediaField";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import { filterRowsByQuery } from "@/lib/admin/search";
 import { mediaCountLabel } from "@/lib/map/trip-media";
 import {
@@ -97,14 +98,10 @@ export function FlightsAdmin() {
     }
     try {
       const response = await fetch("/api/flights");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: FlightRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load flights");
-      }
+      const body = await parseAdminJson<FlightRecord[]>(
+        response,
+        "Failed to load flights",
+      );
       setFlights(body.data ?? []);
       setStatus("ready");
     } catch (error) {
@@ -172,13 +169,9 @@ export function FlightsAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...parsed.data, media }),
       });
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: FlightRecord;
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Save failed");
+      const body = await parseAdminJson<FlightRecord>(response, "Save failed");
+      if (!body.data) {
+        throw new Error("Save failed");
       }
       const saved = body.data;
       if (id) {
@@ -217,10 +210,7 @@ export function FlightsAdmin() {
     setMessage(null);
     try {
       const response = await fetch(`/api/flights/${id}`, { method: "DELETE" });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) cancelEdit();
       setFlights((current) => current.filter((row) => row._id !== id));
       setMessage("Flight deleted.");

@@ -1,8 +1,8 @@
-import { ObjectId, type Db } from "mongodb";
+import { type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
 import { sortBlogs } from "@/lib/blog-sort";
+import { parseObjectId, requireConfiguredDb, StoreError } from "@/lib/store";
 import {
   isPublicBlog,
   type BlogRecord,
@@ -19,29 +19,14 @@ export {
   type BlogWriteInput,
 } from "@/lib/validations/blog-write";
 
-export class BlogStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "BlogStoreError";
-    this.status = status;
-  }
-}
-
-export async function requireBlogsDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new BlogStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new BlogStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
+export { StoreError as BlogStoreError };
 
 function blogsCollection(db: Db) {
   return db.collection(COLLECTIONS.blogs);
+}
+
+function blogId(id: string) {
+  return parseObjectId(id, "Invalid blog id");
 }
 
 export function toBlogDocument(input: BlogWriteInput) {
@@ -57,7 +42,7 @@ export function toBlogDocument(input: BlogWriteInput) {
 }
 
 export async function listAllBlogs(): Promise<BlogRecord[]> {
-  const db = await requireBlogsDb();
+  const db = await requireConfiguredDb();
   const docs = await blogsCollection(db).find({}).limit(5000).toArray();
   return serializeDocs(docs) as BlogRecord[];
 }
@@ -68,7 +53,7 @@ export async function listPublicBlogs(): Promise<BlogRecord[]> {
 }
 
 export async function getBlogBySlug(slug: string): Promise<BlogRecord | null> {
-  const db = await requireBlogsDb();
+  const db = await requireConfiguredDb();
   const doc = await blogsCollection(db).findOne({ url: slug });
   if (!doc) return null;
   const [serialized] = serializeDocs([doc]) as BlogRecord[];
@@ -76,12 +61,12 @@ export async function getBlogBySlug(slug: string): Promise<BlogRecord | null> {
 }
 
 export async function createBlog(input: BlogWriteInput): Promise<BlogRecord> {
-  const db = await requireBlogsDb();
+  const db = await requireConfiguredDb();
   const collection = blogsCollection(db);
 
   const existing = await collection.findOne({ url: input.url });
   if (existing) {
-    throw new BlogStoreError("A blog with that URL slug already exists", 409);
+    throw new StoreError("A blog with that URL slug already exists", 409);
   }
 
   const createdAt = new Date();
@@ -101,20 +86,16 @@ export async function updateBlog(
   id: string,
   input: BlogWriteInput,
 ): Promise<BlogRecord> {
-  const db = await requireBlogsDb();
-  if (!ObjectId.isValid(id)) {
-    throw new BlogStoreError("Invalid blog id", 400);
-  }
-
+  const db = await requireConfiguredDb();
   const collection = blogsCollection(db);
-  const objectId = new ObjectId(id);
+  const objectId = blogId(id);
 
   const slugTaken = await collection.findOne({
     url: input.url,
     _id: { $ne: objectId },
   });
   if (slugTaken) {
-    throw new BlogStoreError("A blog with that URL slug already exists", 409);
+    throw new StoreError("A blog with that URL slug already exists", 409);
   }
 
   const document = toBlogDocument(input);
@@ -125,7 +106,7 @@ export async function updateBlog(
   );
 
   if (!result) {
-    throw new BlogStoreError("Blog not found", 404);
+    throw new StoreError("Blog not found", 404);
   }
 
   const [serialized] = serializeDocs([result]) as BlogRecord[];
@@ -133,14 +114,11 @@ export async function updateBlog(
 }
 
 export async function deleteBlog(id: string): Promise<void> {
-  const db = await requireBlogsDb();
-  if (!ObjectId.isValid(id)) {
-    throw new BlogStoreError("Invalid blog id", 400);
-  }
+  const db = await requireConfiguredDb();
   const result = await blogsCollection(db).deleteOne({
-    _id: new ObjectId(id),
+    _id: blogId(id),
   });
   if (result.deletedCount === 0) {
-    throw new BlogStoreError("Blog not found", 404);
+    throw new StoreError("Blog not found", 404);
   }
 }

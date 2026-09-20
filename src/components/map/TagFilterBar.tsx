@@ -83,7 +83,9 @@ export function TagFilterBar({ selected, options, onChange }: TagFilterBarProps)
         <input
           type="search"
           value={query}
-          placeholder={selected.length === 0 ? "Search tags" : "Add tag"}
+          placeholder={
+            selected.length === 0 ? "Search tags. E.g Passat Roadtrip" : "Add tag"
+          }
           className="min-w-[8rem] flex-1 bg-transparent text-sm text-foreground outline-none"
           onChange={(event) => {
             setQuery(event.target.value);

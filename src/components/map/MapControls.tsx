@@ -35,6 +35,11 @@ const PRIMARY_MODE_KEYS = ["flight"] as const satisfies readonly TravelMode[];
 const RANGE_INPUT_CLASS =
   "w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground";
 
+const YEAR_ACTION_BUTTON =
+  "rounded-md border px-3 py-1.5 text-sm";
+const YEAR_ACTION_BUTTON_ON = `${YEAR_ACTION_BUTTON} border-accent bg-accent text-white`;
+const YEAR_ACTION_BUTTON_OFF = `${YEAR_ACTION_BUTTON} border-border bg-transparent text-foreground`;
+
 const OVERLAY_BUTTON =
   "inline-flex items-center gap-2 rounded-md border border-border bg-transparent px-2.5 py-1 text-foreground";
 const OVERLAY_BUTTON_ON =
@@ -82,6 +87,8 @@ type MapControlsProps = {
   onRangeStartChange: (value: YearMonth) => void;
   onRangeEndChange: (value: YearMonth) => void;
   onRangeApply: (start: YearMonth, end: YearMonth) => void;
+  showAllYears: boolean;
+  onToggleShowAllYears: () => void;
   tagFilters: string[];
   tagOptions: string[];
   onTagFiltersChange: (tags: string[]) => void;
@@ -115,6 +122,8 @@ export function MapControls({
   onRangeStartChange,
   onRangeEndChange,
   onRangeApply,
+  showAllYears,
+  onToggleShowAllYears,
   tagFilters,
   tagOptions,
   onTagFiltersChange,
@@ -411,10 +420,21 @@ export function MapControls({
         </label>
         <button
           type="submit"
-          className="rounded-md border border-accent bg-accent px-3 py-1.5 text-sm text-white"
+          className={YEAR_ACTION_BUTTON_ON}
           data-testid="year-range-apply"
         >
           Apply
+        </button>
+        <button
+          type="button"
+          className={
+            showAllYears ? YEAR_ACTION_BUTTON_ON : YEAR_ACTION_BUTTON_OFF
+          }
+          onClick={onToggleShowAllYears}
+          data-testid="year-range-show-all"
+          aria-pressed={showAllYears}
+        >
+          Show all years
         </button>
         {filterError ? (
           <p className="text-xs text-red-400" data-testid="year-range-error">

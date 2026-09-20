@@ -8,37 +8,18 @@ import {
   removeCountryFeaturesByName,
   type CountryFeatureCollection,
 } from "@/lib/map/countries";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { requireConfiguredDb, StoreError } from "@/lib/store";
 import type { CountryListWriteInput } from "@/lib/validations/country-list-write";
 
 export { countryListWriteSchema } from "@/lib/validations/country-list-write";
 
-export class CountryListStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "CountryListStoreError";
-    this.status = status;
-  }
-}
+export { StoreError as CountryListStoreError };
 
 type CountryListDocument = Document & {
   _id: ObjectId;
   type?: string;
   features?: unknown[];
 };
-
-export async function requireCountryListDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new CountryListStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new CountryListStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
 
 function countryListCollection(db: Db) {
   return db.collection(COLLECTIONS.countryList);
@@ -50,7 +31,7 @@ async function loadCountryListDocument(db: Db): Promise<CountryListDocument> {
     features: { $type: "array" },
   });
   if (!doc) {
-    throw new CountryListStoreError("Country list not found", 404);
+    throw new StoreError("Country list not found", 404);
   }
   return doc;
 }
@@ -69,7 +50,7 @@ function countryAlreadyListed(
 }
 
 export async function listStoredCountryNames(): Promise<string[]> {
-  const db = await requireCountryListDb();
+  const db = await requireConfiguredDb();
   const doc = await loadCountryListDocument(db);
   return listCountryNames(currentCountries(doc));
 }
@@ -77,12 +58,12 @@ export async function listStoredCountryNames(): Promise<string[]> {
 export async function addCountryToList(
   input: CountryListWriteInput,
 ): Promise<string[]> {
-  const db = await requireCountryListDb();
+  const db = await requireConfiguredDb();
   const doc = await loadCountryListDocument(db);
   const countries = currentCountries(doc);
 
   if (countryAlreadyListed(countries, input.name)) {
-    throw new CountryListStoreError("That country is already on the list", 409);
+    throw new StoreError("That country is already on the list", 409);
   }
 
   const feature = createNameOnlyCountryFeature(input.name);
@@ -92,7 +73,7 @@ export async function addCountryToList(
     { $set: { features: nextFeatures } },
   );
   if (result.matchedCount === 0) {
-    throw new CountryListStoreError("Country list not found", 404);
+    throw new StoreError("Country list not found", 404);
   }
 
   return listCountryNames({
@@ -102,7 +83,7 @@ export async function addCountryToList(
 }
 
 export async function removeCountryFromList(name: string): Promise<string[]> {
-  const db = await requireCountryListDb();
+  const db = await requireConfiguredDb();
   const doc = await loadCountryListDocument(db);
   const countries = currentCountries(doc);
   const { countries: nextCountries, removed } = removeCountryFeaturesByName(
@@ -111,7 +92,7 @@ export async function removeCountryFromList(name: string): Promise<string[]> {
   );
 
   if (removed === 0) {
-    throw new CountryListStoreError("Country not found on the list", 404);
+    throw new StoreError("Country not found on the list", 404);
   }
 
   const result = await countryListCollection(db).updateOne(
@@ -119,7 +100,7 @@ export async function removeCountryFromList(name: string): Promise<string[]> {
     { $set: { features: nextCountries.features } },
   );
   if (result.matchedCount === 0) {
-    throw new CountryListStoreError("Country list not found", 404);
+    throw new StoreError("Country list not found", 404);
   }
 
   return listCountryNames(nextCountries);

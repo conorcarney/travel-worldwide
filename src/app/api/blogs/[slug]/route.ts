@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminSession } from "@/lib/authz";
 import { readAuthSession } from "@/lib/auth-session";
+import { handleStoreAction } from "@/lib/api/admin-handler";
 import { loadBlogBySlug } from "@/lib/blog-pages";
-import { BlogStoreError } from "@/lib/blogs";
 import { isMongoConfigured } from "@/lib/mongodb";
 
 type RouteContext = {
@@ -11,7 +11,7 @@ type RouteContext = {
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  try {
+  return handleStoreAction("Failed to load blog", async () => {
     const { slug } = await context.params;
     const session = await readAuthSession(() => auth());
     const blog = await loadBlogBySlug(slug, {
@@ -30,15 +30,5 @@ export async function GET(_request: Request, context: RouteContext) {
       source: isMongoConfigured() ? "mongodb" : "fixtures",
       data: blog,
     });
-  } catch (error) {
-    if (error instanceof BlogStoreError) {
-      return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Failed to load blog";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
+  });
 }

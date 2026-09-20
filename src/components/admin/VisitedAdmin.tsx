@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin/table-sort";
 import { AdminInlineInput } from "@/components/admin/AdminInlineField";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import { normalizeCountryList, listCountryNames } from "@/lib/map/countries";
 import { countryListWriteSchema } from "@/lib/validations/country-list-write";
 import {
@@ -92,24 +93,22 @@ export function VisitedAdmin() {
         fetch("/api/country-list"),
       ]);
 
-      const visitedBody = (await visitedRes.json()) as {
-        ok: boolean;
-        data?: VisitedRecord[];
-        error?: string;
-      };
-      if (!visitedRes.ok || !visitedBody.ok) {
-        throw new Error(visitedBody.error ?? "Failed to load visited countries");
-      }
+      const visitedBody = await parseAdminJson<VisitedRecord[]>(
+        visitedRes,
+        "Failed to load visited countries",
+      );
 
       if (countryListRes.ok) {
-        const countryBody = (await countryListRes.json()) as {
-          ok: boolean;
-          data?: unknown[];
-        };
-        if (countryBody.ok) {
+        try {
+          const countryBody = await parseAdminJson<unknown[]>(
+            countryListRes,
+            "Failed to load country list",
+          );
           setCountryOptions(
             listCountryNames(normalizeCountryList(countryBody.data ?? [])),
           );
+        } catch {
+          // Country list is optional for this screen.
         }
       }
 
@@ -177,13 +176,9 @@ export function VisitedAdmin() {
           body: JSON.stringify(parsed.data),
         },
       );
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: VisitedRecord;
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Save failed");
+      const body = await parseAdminJson<VisitedRecord>(response, "Save failed");
+      if (!body.data) {
+        throw new Error("Save failed");
       }
       const saved = body.data;
       if (id) {
@@ -232,13 +227,9 @@ export function VisitedAdmin() {
         `/api/country-list?name=${encodeURIComponent(name)}`,
         { method: "DELETE" },
       );
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: string[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Delete failed");
+      const body = await parseAdminJson<string[]>(response, "Delete failed");
+      if (!body.data) {
+        throw new Error("Delete failed");
       }
       setCountryOptions(body.data);
       setCountryListMessage(`Removed "${name}" from the country list.`);
@@ -269,13 +260,9 @@ export function VisitedAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: string[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Add failed");
+      const body = await parseAdminJson<string[]>(response, "Add failed");
+      if (!body.data) {
+        throw new Error("Add failed");
       }
       setCountryOptions(body.data);
       setCountryListName("");
@@ -292,10 +279,7 @@ export function VisitedAdmin() {
     setMessage(null);
     try {
       const response = await fetch(`/api/visited/${id}`, { method: "DELETE" });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) cancelEdit();
       setVisited((current) => current.filter((row) => row._id !== id));
       setMessage("Visited country removed.");

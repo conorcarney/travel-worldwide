@@ -1,7 +1,8 @@
-import { ObjectId, type Db } from "mongodb";
+import { type Db } from "mongodb";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { escapeRegex } from "@/lib/escape-regex";
+import { parseObjectId, requireConfiguredDb, StoreError } from "@/lib/store";
 import {
   type VisitedRecord,
   type VisitedWriteInput,
@@ -13,36 +14,14 @@ export {
   type VisitedWriteInput,
 } from "@/lib/validations/visited-write";
 
-export class VisitedStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "VisitedStoreError";
-    this.status = status;
-  }
-}
-
-export async function requireVisitedDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new VisitedStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new VisitedStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
+export { StoreError as VisitedStoreError };
 
 function visitedCollection(db: Db) {
   return db.collection(COLLECTIONS.visited);
 }
 
-function parseObjectId(id: string): ObjectId {
-  if (!ObjectId.isValid(id)) {
-    throw new VisitedStoreError("Invalid visited id", 400);
-  }
-  return new ObjectId(id);
+function visitedId(id: string) {
+  return parseObjectId(id, "Invalid visited id");
 }
 
 export function toVisitedDocument(input: VisitedWriteInput) {
@@ -65,14 +44,14 @@ export function toVisitedDocument(input: VisitedWriteInput) {
 export async function createVisited(
   input: VisitedWriteInput,
 ): Promise<VisitedRecord> {
-  const db = await requireVisitedDb();
+  const db = await requireConfiguredDb();
   const collection = visitedCollection(db);
 
   const existing = await collection.findOne({
     name: { $regex: `^${escapeRegex(input.name)}$`, $options: "i" },
   });
   if (existing) {
-    throw new VisitedStoreError("That country is already marked visited", 409);
+    throw new StoreError("That country is already marked visited", 409);
   }
 
   const document = toVisitedDocument(input);
@@ -87,16 +66,16 @@ export async function updateVisited(
   id: string,
   input: VisitedWriteInput,
 ): Promise<VisitedRecord> {
-  const db = await requireVisitedDb();
+  const db = await requireConfiguredDb();
   const collection = visitedCollection(db);
-  const objectId = parseObjectId(id);
+  const objectId = visitedId(id);
 
   const duplicate = await collection.findOne({
     _id: { $ne: objectId },
     name: { $regex: `^${escapeRegex(input.name)}$`, $options: "i" },
   });
   if (duplicate) {
-    throw new VisitedStoreError("That country is already marked visited", 409);
+    throw new StoreError("That country is already marked visited", 409);
   }
 
   const document = toVisitedDocument(input);
@@ -113,7 +92,7 @@ export async function updateVisited(
   );
 
   if (!result) {
-    throw new VisitedStoreError("Visited country not found", 404);
+    throw new StoreError("Visited country not found", 404);
   }
 
   const [serialized] = serializeDocs([result]) as VisitedRecord[];
@@ -121,14 +100,9 @@ export async function updateVisited(
 }
 
 export async function deleteVisited(id: string): Promise<void> {
-  const db = await requireVisitedDb();
-  const objectId = parseObjectId(id);
-  const result = await visitedCollection(db).deleteOne({ _id: objectId });
+  const db = await requireConfiguredDb();
+  const result = await visitedCollection(db).deleteOne({ _id: visitedId(id) });
   if (result.deletedCount === 0) {
-    throw new VisitedStoreError("Visited country not found", 404);
+    throw new StoreError("Visited country not found", 404);
   }
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

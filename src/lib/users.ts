@@ -2,7 +2,8 @@ import { ObjectId, type Db } from "mongodb";
 import bcrypt from "bcryptjs";
 import { COLLECTIONS } from "@/lib/collections";
 import { serializeDocs } from "@/lib/data";
-import { getDb, isMongoConfigured } from "@/lib/mongodb";
+import { escapeRegex } from "@/lib/escape-regex";
+import { requireConfiguredDb, StoreError } from "@/lib/store";
 import {
   type PublicUserRecord,
   type UserWriteInput,
@@ -15,33 +16,14 @@ export {
   type UserWriteInput,
 } from "@/lib/validations/user-write";
 
-export class UserStoreError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "UserStoreError";
-    this.status = status;
-  }
-}
-
-export async function requireUsersDb(): Promise<Db> {
-  if (!isMongoConfigured()) {
-    throw new UserStoreError("MongoDB is not configured", 503);
-  }
-  const db = await getDb();
-  if (!db) {
-    throw new UserStoreError("MongoDB is not available", 503);
-  }
-  return db;
-}
+export { StoreError as UserStoreError };
 
 async function resolveRoleId(db: Db, roleName: string): Promise<ObjectId> {
   const role = await db.collection(COLLECTIONS.roles).findOne({
     name: { $regex: `^${roleName}$`, $options: "i" },
   });
   if (!role?._id) {
-    throw new UserStoreError(`Role "${roleName}" was not found`, 500);
+    throw new StoreError(`Role "${roleName}" was not found`, 500);
   }
   return new ObjectId(String(role._id));
 }
@@ -50,7 +32,7 @@ export async function createUser(
   input: UserWriteInput,
   options: { allowElevatedRoles?: boolean } = {},
 ): Promise<PublicUserRecord> {
-  const db = await requireUsersDb();
+  const db = await requireConfiguredDb();
   const users = db.collection(COLLECTIONS.users);
 
   const roleName = options.allowElevatedRoles
@@ -69,7 +51,7 @@ export async function createUser(
     ],
   });
   if (existing) {
-    throw new UserStoreError(
+    throw new StoreError(
       "An account with that email or username already exists",
       409,
     );
@@ -97,7 +79,7 @@ export async function createUser(
 }
 
 export async function listPublicUsers(): Promise<PublicUserRecord[]> {
-  const db = await requireUsersDb();
+  const db = await requireConfiguredDb();
   const users = await db
     .collection(COLLECTIONS.users)
     .find({}, { projection: { password: 0 } })
@@ -147,8 +129,4 @@ export function sanitizeUserDocs(docs: unknown[]): PublicUserRecord[] {
       ? user.roles.map((role) => String(role))
       : [],
   }));
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

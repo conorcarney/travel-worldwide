@@ -77,6 +77,13 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   await expect(page.getByTestId("year-start-input")).toBeVisible();
   await expect(page.getByTestId("year-end-input")).toBeVisible();
   await expect(page.getByTestId("year-range-apply")).toBeVisible();
+  await expect(page.getByTestId("year-range-show-all")).toHaveText(
+    "Show all years",
+  );
+  await expect(page.getByTestId("tag-filter-input")).toHaveAttribute(
+    "placeholder",
+    "Search tags. E.g Passat Roadtrip",
+  );
   await page.getByTestId("year-end-input").fill("Dec 2099");
   await page.getByTestId("year-range-apply").click();
   await expect(page.getByTestId("year-range-error")).toContainText(

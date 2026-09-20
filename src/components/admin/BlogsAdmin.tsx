@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import { nextSortState, type SortState } from "@/lib/admin/table-sort";
 import { sortBlogs, type BlogSortKey } from "@/lib/blog-sort";
 import {
@@ -68,14 +69,10 @@ export function BlogsAdmin() {
     setMessage(null);
     try {
       const response = await fetch("/api/blogs?scope=all");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: BlogRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load blogs");
-      }
+      const body = await parseAdminJson<BlogRecord[]>(
+        response,
+        "Failed to load blogs",
+      );
       setBlogs(body.data ?? []);
       setStatus("ready");
     } catch (error) {
@@ -136,10 +133,7 @@ export function BlogsAdmin() {
           body: JSON.stringify(parsed.data),
         },
       );
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Save failed");
-      }
+      await parseAdminJson(response, "Save failed");
       resetForm();
       await loadBlogs();
       setMessage(wasEditing ? "Blog updated." : "Blog added.");
@@ -155,10 +149,7 @@ export function BlogsAdmin() {
     setMessage(null);
     try {
       const response = await fetch(`/api/blogs/id/${id}`, { method: "DELETE" });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) resetForm();
       await loadBlogs();
       setMessage("Blog deleted.");

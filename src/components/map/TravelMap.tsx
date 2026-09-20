@@ -262,6 +262,7 @@ export default function TravelMap() {
   const [showAll, setShowAll] = useState(
     () => parseMapFilterSearch(searchParams).showAll,
   );
+  const [showAllYears, setShowAllYears] = useState(false);
   const [tagFilters, setTagFilters] = useState(
     () => parseMapFilterSearch(searchParams).tags,
   );
@@ -288,6 +289,10 @@ export default function TravelMap() {
   // Keep follow-cam on the overview/user zoom — never auto flyTo ~15.
   const userFollowZoomRef = useRef<number | null>(mapZoom);
   const followCameraRef = useRef<FollowCameraState | null>(null);
+  const previousYearRangeRef = useRef<{
+    start: YearMonth;
+    end: YearMonth;
+  } | null>(null);
 
   useEffect(() => {
     userFollowZoomRef.current = mapZoom;
@@ -721,10 +726,12 @@ export default function TravelMap() {
       : "";
 
   function toggleLayer(key: keyof LayerVisibility) {
+    setShowAllYears(false);
     setLayers((current) => ({ ...current, [key]: !current[key] }));
   }
 
   function toggleSlowLoading() {
+    setShowAllYears(false);
     const next = !slowLoading;
     setSlowLoading(next);
     setShowDetailedRoutes(!next);
@@ -759,6 +766,7 @@ export default function TravelMap() {
     const nextStart = startKey <= endKey ? start : end;
     const nextEnd = startKey <= endKey ? end : start;
     startTransition(() => {
+      setShowAllYears(false);
       setRangeStart(clampYearMonth(nextStart, rangeMin, rangeMax));
       setRangeEnd(clampYearMonth(nextEnd, rangeMin, rangeMax));
       if (!showAll) restartPlayback();
@@ -767,6 +775,7 @@ export default function TravelMap() {
 
   function updateRangeStart(value: YearMonth) {
     startTransition(() => {
+      setShowAllYears(false);
       setRangeStart(clampYearMonth(value, rangeMin, rangeEnd));
       if (!showAll) restartPlayback();
     });
@@ -774,6 +783,7 @@ export default function TravelMap() {
 
   function updateRangeEnd(value: YearMonth) {
     startTransition(() => {
+      setShowAllYears(false);
       setRangeEnd(clampYearMonth(value, rangeStart, rangeMax));
       if (!showAll) restartPlayback();
     });
@@ -781,6 +791,7 @@ export default function TravelMap() {
 
   function updateTagFilters(tags: string[]) {
     startTransition(() => {
+      setShowAllYears(false);
       setTagFilters(tags);
       if (!showAll) restartPlayback();
     });
@@ -820,6 +831,25 @@ export default function TravelMap() {
       restartPlayback();
       return;
     }
+    enableShowAll();
+  }
+
+  function toggleShowAllYears() {
+    if (showAllYears) {
+      setShowAllYears(false);
+      const previous = previousYearRangeRef.current;
+      if (previous) {
+        setRangeStart(clampYearMonth(previous.start, rangeMin, rangeMax));
+        setRangeEnd(clampYearMonth(previous.end, rangeMin, rangeMax));
+      }
+      restartPlayback();
+      return;
+    }
+
+    previousYearRangeRef.current = { start: rangeStart, end: rangeEnd };
+    setRangeStart(rangeMin);
+    setRangeEnd(rangeMax);
+    setShowAllYears(true);
     enableShowAll();
   }
 
@@ -944,6 +974,8 @@ export default function TravelMap() {
             onRangeStartChange={updateRangeStart}
             onRangeEndChange={updateRangeEnd}
             onRangeApply={applyFilterRange}
+            showAllYears={showAllYears}
+            onToggleShowAllYears={toggleShowAllYears}
             tagFilters={tagFilters}
             tagOptions={availableTags}
             onTagFiltersChange={updateTagFilters}
@@ -966,17 +998,20 @@ export default function TravelMap() {
               asOfLabel,
             }}
             showDetailedRoutes={showDetailedRoutes}
-            onToggleDetailedRoutes={() =>
-              setShowDetailedRoutes((current) => !current)
-            }
+            onToggleDetailedRoutes={() => {
+              setShowAllYears(false);
+              setShowDetailedRoutes((current) => !current);
+            }}
             showDetailedTrains={showDetailedTrains}
-            onToggleDetailedTrains={() =>
-              setShowDetailedTrains((current) => !current)
-            }
+            onToggleDetailedTrains={() => {
+              setShowAllYears(false);
+              setShowDetailedTrains((current) => !current);
+            }}
             showDetailedFerries={showDetailedFerries}
-            onToggleDetailedFerries={() =>
-              setShowDetailedFerries((current) => !current)
-            }
+            onToggleDetailedFerries={() => {
+              setShowAllYears(false);
+              setShowDetailedFerries((current) => !current);
+            }}
             slowLoading={slowLoading}
             onToggleSlowLoading={toggleSlowLoading}
           />

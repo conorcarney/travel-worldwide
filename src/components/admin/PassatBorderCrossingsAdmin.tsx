@@ -11,6 +11,7 @@ import {
 import { AdminInlineInput } from "@/components/admin/AdminInlineField";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { SortableHeader } from "@/components/admin/SortableHeader";
+import { parseAdminJson } from "@/lib/admin/api";
 import { filterRowsByQuery } from "@/lib/admin/search";
 import { crossingTimeMinutes } from "@/lib/map/passat-border-crossings";
 import {
@@ -105,14 +106,10 @@ export function PassatBorderCrossingsAdmin() {
     }
     try {
       const response = await fetch("/api/passat-border-crossings");
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: PassatBorderCrossingRecord[];
-        error?: string;
-      };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Failed to load border crossings");
-      }
+      const body = await parseAdminJson<PassatBorderCrossingRecord[]>(
+        response,
+        "Failed to load border crossings",
+      );
       setRows(body.data ?? []);
       setStatus("ready");
     } catch (error) {
@@ -171,13 +168,12 @@ export function PassatBorderCrossingsAdmin() {
           body: JSON.stringify(parsed.data),
         },
       );
-      const body = (await response.json()) as {
-        ok: boolean;
-        data?: PassatBorderCrossingRecord;
-        error?: string;
-      };
-      if (!response.ok || !body.ok || !body.data) {
-        throw new Error(body.error ?? "Save failed");
+      const body = await parseAdminJson<PassatBorderCrossingRecord>(
+        response,
+        "Save failed",
+      );
+      if (!body.data) {
+        throw new Error("Save failed");
       }
       const saved = body.data;
       if (id) {
@@ -218,10 +214,7 @@ export function PassatBorderCrossingsAdmin() {
       const response = await fetch(`/api/passat-border-crossings/${id}`, {
         method: "DELETE",
       });
-      const body = (await response.json()) as { ok: boolean; error?: string };
-      if (!response.ok || !body.ok) {
-        throw new Error(body.error ?? "Delete failed");
-      }
+      await parseAdminJson(response, "Delete failed");
       if (editingId === id) cancelEdit();
       setRows((current) => current.filter((row) => row._id !== id));
       setMessage("Border crossing removed.");
