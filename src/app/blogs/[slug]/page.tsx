@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
+import { BlogAdjacentNav } from "@/components/blogs/BlogAdjacentNav";
 import { BlogBody } from "@/components/blogs/BlogBody";
+import { BlogCoverImage } from "@/components/blogs/BlogCoverImage";
 import { isAdminSession } from "@/lib/authz";
 import { readAuthSession } from "@/lib/auth-session";
 import { stripBlogMarkdown } from "@/lib/blog-body";
-import { loadBlogBySlug } from "@/lib/blog-pages";
+import { loadBlogBySlug, loadPublicBlogs } from "@/lib/blog-pages";
+import { adjacentBlogs, blogsForAdjacentNav } from "@/lib/blog-sort";
 import { isPublicBlog } from "@/lib/validations/blog-write";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +44,11 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   if (!blog) notFound();
 
   const unpublished = !isPublicBlog(blog);
+  const publicBlogs = await loadPublicBlogs();
+  const { previous, next } = adjacentBlogs(
+    blogsForAdjacentNav(blog, publicBlogs),
+    blog.url,
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10 sm:px-6">
@@ -68,8 +76,15 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
         <h1 className="mt-2 font-display text-4xl tracking-tight text-foreground sm:text-5xl">
           {blog.blog_title}
         </h1>
+        <BlogCoverImage
+          src={blog.image_url}
+          alt={blog.blog_title}
+          className="mt-6 max-h-96 w-full rounded-xl border border-border object-cover"
+        />
         <BlogBody description={blog.blog_description} />
       </article>
+
+      <BlogAdjacentNav previous={previous} next={next} />
     </main>
   );
 }

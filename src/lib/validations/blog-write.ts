@@ -1,4 +1,4 @@
-import { stripBlogMarkdown } from "@/lib/blog-body";
+import { isSafeBlogImageUrl, stripBlogMarkdown } from "@/lib/blog-body";
 import { z } from "zod";
 
 export const blogWriteSchema = z.object({
@@ -16,6 +16,15 @@ export const blogWriteSchema = z.object({
   blog_title: z.string().trim().min(1, "Title is required"),
   blog_description: z.string().trim().min(1, "Description is required"),
   tags: z.string().trim().optional().default(""),
+  image_url: z
+    .string()
+    .trim()
+    .optional()
+    .default("")
+    .refine(
+      (value) => value === "" || isSafeBlogImageUrl(value),
+      "Enter a valid http(s) image URL",
+    ),
 });
 
 export type BlogWriteInput = z.infer<typeof blogWriteSchema>;

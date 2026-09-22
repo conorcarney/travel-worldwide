@@ -38,6 +38,7 @@ export function toBlogDocument(input: BlogWriteInput) {
     blog_title: input.blog_title,
     blog_description: input.blog_description,
     tags: input.tags ?? "",
+    image_url: input.image_url ?? "",
   };
 }
 

@@ -64,6 +64,7 @@ describe("blogWriteSchema", () => {
     blog_title: "Budasesh",
     blog_description: "A trip note",
     tags: "",
+    image_url: "https://example.com/cover.jpg",
   };
 
   it("accepts a valid blog", () => {
@@ -84,6 +85,24 @@ describe("blogWriteSchema", () => {
       blogWriteSchema.safeParse({ ...valid, url: "Hungary Place" }).success,
     ).toBe(false);
   });
+
+  it("accepts an empty or valid title image URL", () => {
+    expect(
+      blogWriteSchema.safeParse({ ...valid, image_url: "" }).success,
+    ).toBe(true);
+    expect(
+      blogWriteSchema.safeParse({
+        ...valid,
+        image_url: "https://example.com/cover.jpg",
+      }).success,
+    ).toBe(true);
+    expect(
+      blogWriteSchema.safeParse({
+        ...valid,
+        image_url: "javascript:alert(1)",
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("toBlogDocument", () => {
@@ -97,6 +116,7 @@ describe("toBlogDocument", () => {
         blog_title: "Budasesh",
         blog_description: "A trip note",
         tags: "",
+        image_url: "https://example.com/cover.jpg",
       }),
     ).toEqual({
       name: "Hungary",
@@ -106,6 +126,7 @@ describe("toBlogDocument", () => {
       blog_title: "Budasesh",
       blog_description: "A trip note",
       tags: "",
+      image_url: "https://example.com/cover.jpg",
     });
   });
 });

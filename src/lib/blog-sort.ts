@@ -100,6 +100,28 @@ function compareCreated(
   return compareSortValues(leftMs, rightMs, direction);
 }
 
+export function adjacentBlogs(
+  blogs: BlogRecord[],
+  slug: string,
+): { previous: BlogRecord | null; next: BlogRecord | null } {
+  const index = blogs.findIndex((blog) => blog.url === slug);
+  if (index === -1) return { previous: null, next: null };
+  return {
+    previous: blogs[index - 1] ?? null,
+    next: blogs[index + 1] ?? null,
+  };
+}
+
+export function blogsForAdjacentNav(
+  current: BlogRecord,
+  publicBlogs: BlogRecord[],
+): BlogRecord[] {
+  if (publicBlogs.some((blog) => blog._id === current._id)) {
+    return publicBlogs;
+  }
+  return sortBlogs([current, ...publicBlogs]);
+}
+
 export function sortBlogs(
   blogs: BlogRecord[],
   sort: SortState<BlogSortKey> = DEFAULT_BLOG_SORT,

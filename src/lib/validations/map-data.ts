@@ -82,6 +82,7 @@ export const mongoBlogSchema = z.object({
   blog_title: z.string().optional(),
   blog_description: z.string().optional(),
   tags: z.string().optional(),
+  image_url: z.string().optional(),
 });
 
 export const mongoBookmarkFeatureSchema = z.object({

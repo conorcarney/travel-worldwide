@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { BlogCoverImage } from "@/components/blogs/BlogCoverImage";
 import {
   BLOG_SORT_OPTIONS,
   DEFAULT_BLOG_SORT,
@@ -74,25 +75,32 @@ export function BlogIndex({ blogs }: { blogs: BlogRecord[] }) {
           <li key={blog._id}>
             <Link
               href={`/blogs/${blog.url}`}
-              className="block py-5 transition-colors hover:bg-surface/50"
+              className="flex gap-4 py-5 transition-colors hover:bg-surface/50"
             >
-              <h2 className="font-display text-2xl text-foreground">
-                {blog.blog_title}
-              </h2>
-              <p className="mt-1 text-xs uppercase tracking-wide text-muted">
-                {blog.name}
-                {blog.date_of_story
-                  ? ` · ${blog.date_of_story}`
-                  : blog.date_of_first_visit
-                    ? ` · ${blog.date_of_first_visit}`
-                    : ""}
-              </p>
-              {blog.tags ? (
-                <p className="mt-1 text-xs text-muted">{blog.tags}</p>
-              ) : null}
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                {briefBlogDescription(blog.blog_description)}
-              </p>
+              <BlogCoverImage
+                src={blog.image_url}
+                alt=""
+                className="h-24 w-32 shrink-0 rounded-lg border border-border object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-2xl text-foreground">
+                  {blog.blog_title}
+                </h2>
+                <p className="mt-1 text-xs uppercase tracking-wide text-muted">
+                  {blog.name}
+                  {blog.date_of_story
+                    ? ` · ${blog.date_of_story}`
+                    : blog.date_of_first_visit
+                      ? ` · ${blog.date_of_first_visit}`
+                      : ""}
+                </p>
+                {blog.tags ? (
+                  <p className="mt-1 text-xs text-muted">{blog.tags}</p>
+                ) : null}
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  {briefBlogDescription(blog.blog_description)}
+                </p>
+              </div>
             </Link>
           </li>
         ))}

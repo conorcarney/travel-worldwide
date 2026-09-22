@@ -26,6 +26,7 @@ type BlogFormState = {
   blog_title: string;
   blog_description: string;
   tags: string;
+  image_url: string;
 };
 
 const EMPTY_FORM: BlogFormState = {
@@ -36,6 +37,7 @@ const EMPTY_FORM: BlogFormState = {
   blog_title: "",
   blog_description: "",
   tags: "",
+  image_url: "",
 };
 
 function toFormState(blog: BlogRecord): BlogFormState {
@@ -47,6 +49,7 @@ function toFormState(blog: BlogRecord): BlogFormState {
     blog_title: blog.blog_title ?? "",
     blog_description: blog.blog_description ?? "",
     tags: blog.tags ?? "",
+    image_url: blog.image_url ?? "",
   };
 }
 
@@ -252,6 +255,17 @@ export function BlogsAdmin() {
             onChange={(event) => updateField("tags", event.target.value)}
             placeholder="Draft, Hidden"
             data-testid="blog-tags"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-muted sm:col-span-2">
+          Title image URL (optional)
+          <input
+            className="rounded border border-border bg-background px-3 py-2 text-foreground"
+            value={form.image_url}
+            onChange={(event) => updateField("image_url", event.target.value)}
+            placeholder="https://…jpg"
+            data-testid="blog-image-url"
           />
         </label>
 

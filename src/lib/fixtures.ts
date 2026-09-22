@@ -75,6 +75,7 @@ export const fixtures: Record<CollectionKey, unknown[]> = {
       blog_description:
         "Notes from the trip around Ireland, from Temple Bar to the west coast.",
       tags: "",
+      image_url: "",
     },
   ],
   countryRatings: [],

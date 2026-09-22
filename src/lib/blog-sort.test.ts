@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  adjacentBlogs,
   blogCreatedAtMs,
+  blogsForAdjacentNav,
   defaultBlogSortDirection,
   objectIdCreatedAtMs,
   sortBlogs,
@@ -15,6 +17,7 @@ function blog(partial: Partial<BlogRecord> & Pick<BlogRecord, "_id" | "blog_titl
     url: partial._id,
     blog_description: "Note",
     tags: "",
+    image_url: "",
     ...partial,
   };
 }
@@ -126,5 +129,47 @@ describe("sortBlogs", () => {
     expect(
       sortBlogs(rows, { key: "slug", direction: "asc" }).map((row) => row.url),
     ).toEqual(["middle", "newer", "older"]);
+  });
+});
+
+describe("adjacentBlogs", () => {
+  it("returns previous and next posts in list order", () => {
+    const rows = [
+      blog({ _id: "a", blog_title: "A" }),
+      blog({ _id: "b", blog_title: "B" }),
+      blog({ _id: "c", blog_title: "C" }),
+    ];
+    expect(adjacentBlogs(rows, "b")).toEqual({
+      previous: rows[0],
+      next: rows[2],
+    });
+    expect(adjacentBlogs(rows, "a").previous).toBeNull();
+    expect(adjacentBlogs(rows, "c").next).toBeNull();
+  });
+
+  it("inserts a hidden post into the public line for next/previous", () => {
+    const publicRows = [
+      blog({
+        _id: "newer",
+        blog_title: "Newer",
+        date_of_story: "02/2024",
+      }),
+      blog({
+        _id: "older",
+        blog_title: "Older",
+        date_of_story: "03/2020",
+      }),
+    ];
+    const hidden = blog({
+      _id: "hidden",
+      blog_title: "Hidden",
+      date_of_story: "01/2023",
+    });
+    const line = blogsForAdjacentNav(hidden, publicRows);
+    expect(line.map((row) => row._id)).toEqual(["newer", "hidden", "older"]);
+    expect(adjacentBlogs(line, "hidden")).toEqual({
+      previous: line[0],
+      next: line[2],
+    });
   });
 });
