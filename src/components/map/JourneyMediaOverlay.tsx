@@ -136,6 +136,39 @@ const STEP_BUTTON =
 
 const CAPTION_ONLY_WIDTH = 320;
 
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 12 12" className="h-3.5 w-3.5" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M2.1 1.4 1.4 2.1 5.3 6 1.4 9.9l.7.7L6 6.7l3.9 3.9.7-.7L6.7 6l3.9-3.9-.7-.7L6 5.3z"
+      />
+    </svg>
+  );
+}
+
+function MediaRestoreIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden>
+      <rect
+        x="3"
+        y="4.5"
+        width="14"
+        height="11"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        fill="currentColor"
+        d="M5.2 13.2 8 10.1l2.2 2.3 3-3.4 3.2 4.2H5.2z"
+      />
+      <circle cx="7.2" cy="7.6" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function JourneyMediaOverlay({
   media,
   title,
@@ -147,6 +180,7 @@ export function JourneyMediaOverlay({
   const [index, setIndex] = useState(0);
   const [mapSize, setMapSize] = useState<MediaSize>({ width: 0, height: 0 });
   const [naturalSize, setNaturalSize] = useState<MediaSize | null>(null);
+  const [minimized, setMinimized] = useState(false);
   const rootRef = useRef<HTMLElement>(null);
   const hasMedia = items.length > 0;
 
@@ -198,7 +232,7 @@ export function JourneyMediaOverlay({
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [hasMedia]);
+  }, [hasMedia, minimized]);
 
   const current = Math.min(index, Math.max(items.length - 1, 0));
   const item = hasMedia ? items[current]! : null;
@@ -224,13 +258,38 @@ export function JourneyMediaOverlay({
     });
   }
 
+  if (minimized) {
+    return (
+      <button
+        type="button"
+        className="pointer-events-auto absolute top-4 right-4 z-[1100] flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface/95 text-foreground shadow-lg hover:border-accent hover:text-accent"
+        onClick={() => setMinimized(false)}
+        aria-label="Show media"
+        aria-expanded={false}
+        data-testid="journey-media-restore"
+      >
+        <MediaRestoreIcon />
+      </button>
+    );
+  }
+
   return (
     <aside
       ref={rootRef}
       className="pointer-events-auto absolute top-4 right-4 z-[1100] flex flex-col overflow-hidden rounded-xl border border-border bg-surface/95 shadow-lg"
       style={{ width: box.width }}
       data-testid="journey-media"
+      aria-expanded={true}
     >
+      <button
+        type="button"
+        className={`${STEP_BUTTON} absolute top-2 right-2 z-20`}
+        onClick={() => setMinimized(true)}
+        aria-label="Minimise media"
+        data-testid="journey-media-minimise"
+      >
+        <CloseIcon />
+      </button>
       {item ? (
         <div
           className="relative bg-neutral-500"
@@ -275,7 +334,7 @@ export function JourneyMediaOverlay({
       ) : null}
 
       <p
-        className="px-4 py-2 text-foreground"
+        className="px-4 py-2 pr-12 text-foreground"
         data-testid="journey-caption"
         aria-live="polite"
       >
