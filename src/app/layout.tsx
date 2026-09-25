@@ -3,6 +3,7 @@ import { Fraunces, Source_Sans_3 } from "next/font/google";
 import { Suspense } from "react";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { SiteHeader } from "@/components/SiteHeader";
+import { WEB_MCP_BOOTSTRAP } from "@/lib/agent/webmcp-bootstrap";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -34,7 +35,11 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${sourceSans.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="describedby" href="/.well-known/ai-catalog.json" />
+      </head>
       <body className="flex min-h-full flex-col font-sans">
+        <script dangerouslySetInnerHTML={{ __html: WEB_MCP_BOOTSTRAP }} />
         <Suspense fallback={null}>
           <GoogleAnalytics />
         </Suspense>

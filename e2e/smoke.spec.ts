@@ -48,7 +48,9 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   const to = await page.getByTestId("year-end-value").textContent();
   const dates = from === to ? from : `${from} – ${to}`;
   await expect(page.getByTestId("map-filter-dates")).toHaveText(dates ?? "");
-  await expect(page.getByTestId("map-filter-active")).toHaveCount(0);
+  await expect(page.getByTestId("map-filter-active")).toHaveText(
+    "Passat Roadtrip",
+  );
   await expect(page.getByTestId("layer-visited")).toBeChecked();
   await expect(page.getByTestId("layer-flight")).toBeChecked();
   await expect(page.getByTestId("layer-bookmarks")).not.toBeChecked();
@@ -82,8 +84,11 @@ test("map page renders Leaflet with controls", async ({ page }) => {
   );
   await expect(page.getByTestId("tag-filter-input")).toHaveAttribute(
     "placeholder",
-    "Search tags. E.g Passat Roadtrip",
+    "Add tag",
   );
+  await expect(
+    page.getByRole("button", { name: "Remove tag Passat Roadtrip" }),
+  ).toBeVisible();
   await page.getByTestId("year-end-input").fill("Dec 2099");
   await page.getByTestId("year-range-apply").click();
   await expect(page.getByTestId("year-range-error")).toContainText(

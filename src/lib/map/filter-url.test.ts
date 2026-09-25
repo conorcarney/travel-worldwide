@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FILTER_START,
+  DEFAULT_FILTER_TAGS,
   DEFAULT_LAYERS,
   DEFAULT_MAP_ZOOM,
   buildCountryVisitMapHref,
@@ -64,6 +65,16 @@ describe("parseMapFilterSearch", () => {
     ).toEqual({ road: false, train: true, ferry: false });
   });
 
+  it("defaults to Passat Roadtrip when tag is omitted", () => {
+    expect(parseMapFilterSearch(new URLSearchParams()).tags).toEqual(
+      DEFAULT_FILTER_TAGS,
+    );
+  });
+
+  it("treats an empty tag param as no tags", () => {
+    expect(parseMapFilterSearch(new URLSearchParams("tag=")).tags).toEqual([]);
+  });
+
   it("reads multiple tag params", () => {
     expect(
       parseMapFilterSearch(new URLSearchParams("tag=Work&tag=Family")).tags,
@@ -89,7 +100,7 @@ describe("buildMapFilterQuery", () => {
         zoom: 6,
         paused: false,
       }),
-    ).toBe("speed=normal&zoom=6&paused=0");
+    ).toBe("tag=&speed=normal&zoom=6&paused=0");
   });
 
   it("writes show= when a slow land layer is turned on", () => {
@@ -105,7 +116,7 @@ describe("buildMapFilterQuery", () => {
         zoom: 6,
         paused: false,
       }),
-    ).toBe("show=car&speed=normal&zoom=6&paused=0");
+    ).toBe("tag=&show=car&speed=normal&zoom=6&paused=0");
   });
 
   it("writes detailed=none when overlays are off", () => {
@@ -122,7 +133,7 @@ describe("buildMapFilterQuery", () => {
         zoom: 6,
         paused: false,
       }),
-    ).toBe("detailed=none&speed=normal&zoom=6&paused=0");
+    ).toBe("tag=&detailed=none&speed=normal&zoom=6&paused=0");
   });
 
   it("writes from, to, tag, hide, and show", () => {
@@ -172,7 +183,7 @@ describe("buildMapFilterQuery", () => {
         zoom: 8,
         paused: true,
       }),
-    ).toBe("speed=fast&zoom=8&paused=1");
+    ).toBe("tag=&speed=fast&zoom=8&paused=1");
   });
 
   it("writes all=1 when show all is on", () => {
@@ -189,7 +200,7 @@ describe("buildMapFilterQuery", () => {
         paused: false,
         showAll: true,
       }),
-    ).toBe("speed=normal&zoom=6&paused=0&all=1");
+    ).toBe("tag=&speed=normal&zoom=6&paused=0&all=1");
   });
 
   it("writes to when it is not the current month", () => {
@@ -205,7 +216,23 @@ describe("buildMapFilterQuery", () => {
         zoom: 6,
         paused: false,
       }),
-    ).toBe("to=2027-12&speed=normal&zoom=6&paused=0");
+    ).toBe("to=2027-12&tag=&speed=normal&zoom=6&paused=0");
+  });
+
+  it("omits tag when it is the default Passat Roadtrip filter", () => {
+    expect(
+      buildMapFilterQuery({
+        from: DEFAULT_FILTER_START,
+        to: defaultTo,
+        boundsMin,
+        boundsMax,
+        tags: [...DEFAULT_FILTER_TAGS],
+        layers: DEFAULT_LAYERS,
+        speed: "normal",
+        zoom: 6,
+        paused: false,
+      }),
+    ).toBe("speed=normal&zoom=6&paused=0");
   });
 
   it("writes from when it is not the default start", () => {
@@ -221,7 +248,7 @@ describe("buildMapFilterQuery", () => {
         zoom: 6,
         paused: false,
       }),
-    ).toBe("from=2000-01&speed=normal&zoom=6&paused=0");
+    ).toBe("from=2000-01&tag=&speed=normal&zoom=6&paused=0");
   });
 });
 
@@ -345,6 +372,7 @@ describe("buildModeMapHref", () => {
     expect(parsed.from).toEqual({ year: 1900, month: 1 });
     expect(parsed.to).toBeNull();
     expect(parsed.showAll).toBe(true);
+    expect(parsed.tags).toEqual([]);
     expect(parsed.layers).toEqual({
       visited: false,
       flight: true,
@@ -363,7 +391,7 @@ describe("buildModeMapHref", () => {
 
   it("hides visited and flights and shows detailed car routes", () => {
     expect(buildModeMapHref("car")).toBe(
-      "/map?from=1900-01&hide=visited%2Cflight&show=car&detailed=routes&all=1",
+      "/map?from=1900-01&tag=&hide=visited%2Cflight&show=car&detailed=routes&all=1",
     );
   });
 

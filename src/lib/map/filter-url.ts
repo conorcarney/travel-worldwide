@@ -125,6 +125,9 @@ export const DEFAULT_MAP_ZOOM = 6;
 /** Default date-filter start when the URL omits `from`. */
 export const DEFAULT_FILTER_START: YearMonth = { year: 2025, month: 1 };
 
+/** Default trip tag when the URL omits `tag`. */
+export const DEFAULT_FILTER_TAGS = ["Passat Roadtrip"];
+
 /** Default date-filter end when the URL omits `to`. */
 export function defaultFilterEnd(now: Date = new Date()): YearMonth {
   return currentYearMonth(now);
@@ -235,6 +238,7 @@ export type MapFilterSearch = {
 export function parseMapFilterSearch(search: {
   get: (name: string) => string | null;
   getAll?: (name: string) => string[];
+  has?: (name: string) => boolean;
 }): MapFilterSearch {
   return {
     from: parseYearMonthParam(search.get("from")),
@@ -249,25 +253,51 @@ export function parseMapFilterSearch(search: {
   };
 }
 
+function searchHasTagParam(search: {
+  get: (name: string) => string | null;
+  getAll?: (name: string) => string[];
+  has?: (name: string) => boolean;
+}): boolean {
+  if (typeof search.has === "function") return search.has("tag");
+  const listed = search.getAll?.("tag");
+  if (listed && listed.length > 0) return true;
+  return search.get("tag") !== null;
+}
+
+function uniqueTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const values: string[] = [];
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push(trimmed);
+  }
+  return values;
+}
+
+function tagsMatchDefault(tags: readonly string[]): boolean {
+  const keys = uniqueTags(tags).map((tag) => tag.toLowerCase());
+  const defaults = DEFAULT_FILTER_TAGS.map((tag) => tag.toLowerCase());
+  return (
+    keys.length === defaults.length &&
+    keys.every((key) => defaults.includes(key))
+  );
+}
+
 export function parseTagParams(search: {
   get: (name: string) => string | null;
   getAll?: (name: string) => string[];
+  has?: (name: string) => boolean;
 }): string[] {
+  if (!searchHasTagParam(search)) {
+    return [...DEFAULT_FILTER_TAGS];
+  }
   const raw = search.getAll?.("tag") ?? [];
   const values = raw.length > 0 ? raw : [search.get("tag") ?? ""];
-  const tags: string[] = [];
-  const seen = new Set<string>();
-  for (const value of values) {
-    for (const part of value.split(",")) {
-      const tag = part.trim();
-      if (!tag) continue;
-      const key = tag.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      tags.push(tag);
-    }
-  }
-  return tags;
+  return uniqueTags(values.flatMap((value) => value.split(",")));
 }
 
 export function clampFilterRange(
@@ -315,14 +345,15 @@ export function buildMapFilterQuery(input: {
   if (yearMonthKey(input.to) !== yearMonthKey(defaultTo)) {
     params.set("to", formatYearMonthParam(input.to));
   }
-  const seen = new Set<string>();
-  for (const tag of input.tags) {
-    const trimmed = tag.trim();
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    params.append("tag", trimmed);
+  const tags = uniqueTags(input.tags);
+  if (!tagsMatchDefault(tags)) {
+    if (tags.length === 0) {
+      params.set("tag", "");
+    } else {
+      for (const tag of tags) {
+        params.append("tag", tag);
+      }
+    }
   }
 
   applyLayerVisibilityParams(params, input.layers);
@@ -389,6 +420,7 @@ export function buildModeMapHref(mode: TravelMode, year?: number): string {
   } else {
     params.set("from", formatYearMonthParam({ year: 1900, month: 1 }));
   }
+  params.set("tag", "");
   applyLayerVisibilityParams(params, layers);
   applyDetailedOverlayParams(params, detailed);
   params.set("all", "1");
